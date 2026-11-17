@@ -11,4 +11,6 @@ export interface OrderRepository {
   createOrder(input: OrderInput, idempotencyKey: string): Promise<Order>;
   getOrderByReference(reference: string, phone: string): Promise<Order | null>;
   listOrdersForPhone(phone: string): Promise<Order[]>;
+  /** Admin/inbox view of every website order. In production this is the ERP order inbox. */
+  listAll(): Promise<Order[]>;
 }

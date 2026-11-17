@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, Snowflake, Truck, Wallet } from "lucide-react";
 import { getRepositories } from "@/lib/repositories";
+import { getStorefront, pageContent } from "@/lib/content/server";
+import { deliverySummary } from "@/lib/pricing";
 import { ProductGrid } from "@/components/ProductGrid";
 import { Stars } from "@/components/Stars";
 import { Availability } from "@/components/Availability";
@@ -18,10 +20,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { catalog } = getRepositories();
-  const product = await catalog.getProductBySlug((await params).slug);
+  const { slug } = await params;
+  const [{ categories, visible: all }, commerce] = await Promise.all([getStorefront(), pageContent("commerce")]);
+  const product = all.find((p) => p.slug === slug); // hidden products are not reachable
   if (!product) notFound();
-  const [categories, all] = await Promise.all([catalog.listCategories(), catalog.listProducts()]);
   const category = categories.find((c) => c.id === product.categoryId);
   const related = all.filter((p) => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4);
   const crumb = "text-ink-soft hover:text-brand hover:underline";
@@ -42,7 +44,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <p className="mt-5 text-base text-ink-soft">{product.description}</p>
           <Purchase product={product} />
           <ul className="mt-8 grid gap-3 border-t border-hairline pt-6 text-sm">
-            {[[Snowflake, "Packed and dispatched chilled"], [Truck, "Free delivery on orders over ৳1,500"], [Wallet, "Cash on delivery available"]].map(([I, t]) => {
+            {[[Snowflake, "Packed and dispatched chilled"], [Truck, deliverySummary(commerce)], [Wallet, "Cash on delivery available"]].map(([I, t]) => {
               const Icon = I as typeof Snowflake; return <li key={t as string} className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-mint-light text-brand"><Icon size={18} aria-hidden /></span>{t as string}</li>;
             })}
           </ul>

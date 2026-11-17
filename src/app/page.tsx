@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { BadgeCheck, Package, Route, Scale, ShieldCheck, Snowflake, Star } from "lucide-react";
-import { getRepositories } from "@/lib/repositories";
+import { getStorefront, pageContent } from "@/lib/content/server";
+import { deliverySummary } from "@/lib/pricing";
 import { Hero } from "@/components/Hero";
 import { CategoryCard } from "@/components/CategoryCard";
 import { ProductGrid } from "@/components/ProductGrid";
@@ -23,14 +24,11 @@ const TESTIMONIALS = [
 ];
 
 export default async function Home() {
-  const { catalog } = getRepositories();
-  const [categories, products] = await Promise.all([catalog.listCategories(), catalog.listProducts()]);
-  const featured = products.filter((p) => p.availability !== "out_of_stock").slice(0, 4);
-  const best = products.filter((p) => p.tags.includes("bestseller")).slice(0, 4);
+  const [{ categories, visible: products, featured, best }, hero, commerce] = await Promise.all([getStorefront(), pageContent("hero"), pageContent("commerce")]);
 
   return (
     <>
-      <Hero />
+      <Hero hero={hero} commerce={commerce} />
 
       <section className="container-page pt-20" aria-labelledby="cats">
         <SectionHeading id="cats" eyebrow="Categories" title="Shop by category" description="Sample categories for the demo catalogue." action={{ href: "/shop", label: "All products" }} />
@@ -83,8 +81,8 @@ export default async function Home() {
           <div className="absolute -right-6 -top-6 h-44 w-44 rounded-full border border-gold/25" aria-hidden />
           <div className="relative max-w-xl">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">Special offer</p>
-            <h2 id="promo" className="mt-3 text-3xl text-white sm:text-4xl">Free delivery on orders over ৳1,500</h2>
-            <p className="mt-3 text-white/80">Stock up on your favourites and skip the delivery charge. Applied automatically at checkout.</p>
+            <h2 id="promo" className="mt-3 text-3xl text-white sm:text-4xl">Free delivery within {commerce.freeRadiusKm} km</h2>
+            <p className="mt-3 text-white/80">{deliverySummary(commerce)}. Calculated automatically at checkout from your delivery area.</p>
             <ButtonLink href="/shop" variant="gold" className="mt-7 px-7">Start shopping</ButtonLink>
           </div>
         </div>

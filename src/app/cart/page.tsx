@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import { useCart, useHydrated } from "@/store/cart";
 import { useCatalog } from "@/lib/useCatalog";
-import { DELIVERY_CHARGE, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
+import { deliverySummary } from "@/lib/pricing";
+import { useCommerce } from "@/lib/useCommerce";
 import { taka } from "@/lib/format";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
 import { ButtonLink } from "@/components/ui/Button";
@@ -13,6 +14,7 @@ export default function CartPage() {
   const hydrated = useHydrated();
   const { lines, setQty, remove } = useCart();
   const { products, error } = useCatalog();
+  const commerce = useCommerce();
 
   if (!hydrated || (!products && !error)) return <div className="container-page py-20 text-sm text-ink-soft" role="status">Loading your cart…</div>;
   if (error) return <div className="container-page py-20"><p role="alert" className="font-medium text-danger">We couldn&apos;t load product prices. Please refresh the page.</p></div>;
@@ -33,7 +35,6 @@ export default function CartPage() {
     );
 
   const subtotal = rows.reduce((n, r) => n + r.o.price * r.l.quantity, 0);
-  const delivery = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
 
   return (
     <div className="container-page py-10">
@@ -60,10 +61,10 @@ export default function CartPage() {
           <h2 className="text-xl">Order summary</h2>
           <dl className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd className="font-medium">{taka(subtotal)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd className="font-medium">{delivery === 0 ? "Free" : taka(delivery)}</dd></div>
-            <div className="flex justify-between border-t border-hairline pt-4 text-lg font-bold text-deep"><dt>Total</dt><dd>{taka(subtotal + delivery)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd className="font-medium">At checkout</dd></div>
+            <div className="flex justify-between border-t border-hairline pt-4 text-lg font-bold text-deep"><dt>Total before delivery</dt><dd>{taka(subtotal)}</dd></div>
           </dl>
-          {delivery > 0 && <p className="mt-4 rounded-lg bg-mint-light p-3 text-xs text-ink">Add <strong>{taka(FREE_DELIVERY_THRESHOLD - subtotal)}</strong> more for free delivery.</p>}
+          {commerce && <p className="mt-4 rounded-lg bg-mint-light p-3 text-xs text-ink">{deliverySummary(commerce)}. Your delivery charge is calculated at checkout from your area.</p>}
           <ButtonLink href="/checkout" className="mt-6 w-full">Proceed to checkout</ButtonLink>
           <ButtonLink href="/shop" variant="ghost" className="mt-2 w-full">Continue shopping</ButtonLink>
         </aside>

@@ -3,25 +3,32 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --c-brand: 18 76 50; --c-deep: 11 53 37; --c-leaf: 23 107 58; --c-mint: 217 243 229; --c-mint-light: 239 248 242;
+    --c-gold: 214 173 69; --c-canvas: 247 249 246; --c-ink: 38 53 45; --c-ink-soft: 100 116 106;
+    --c-hairline: 227 234 228; --c-danger: 198 40 40; --c-success: 24 128 74;
+    --r-btn: 0.5rem; --w-heading: 700;
+  }
   html { scroll-behavior: smooth; }
   body { @apply bg-canvas font-sans text-base leading-relaxed text-ink antialiased; }
-  h1, h2, h3, h4 { @apply font-bold tracking-tight text-deep; }
-  :focus-visible { outline: 3px solid #176B3A; outline-offset: 2px; border-radius: 4px; }
-  .on-dark :focus-visible { outline-color: #D6AD45; }
+  h1, h2, h3, h4 { @apply tracking-tight text-deep; font-weight: var(--w-heading); }
+  :focus-visible { outline: 3px solid rgb(var(--c-leaf)); outline-offset: 2px; border-radius: 4px; }
+  .on-dark :focus-visible { outline-color: rgb(var(--c-gold)); }
 }
 
 @layer components {
   .container-page { @apply mx-auto w-full max-w-page px-4 sm:px-6 lg:px-8; }
 
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100; border-radius: var(--r-btn); }
   .btn-primary { @apply btn bg-brand text-white shadow-soft hover:bg-deep; }
-  .btn-gold { @apply btn bg-gold text-deep hover:bg-[#E2BD5C]; }
+  .btn-gold { @apply btn bg-gold text-deep hover:brightness-105; }
   .btn-outline { @apply btn border border-brand bg-white text-brand hover:bg-mint-light; }
   .btn-ghost { @apply btn text-brand hover:bg-mint-light; }
   .btn-light { @apply btn bg-white text-deep hover:bg-mint; }
 
   /* Form control borders use ink-soft so the boundary meets 3:1 non-text contrast. */
-  .input { @apply min-h-[44px] w-full rounded-lg border border-ink-soft bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/80 transition-shadow focus:border-brand focus:shadow-[0_0_0_3px_rgba(23,107,58,0.2)]; }
+  .input { @apply min-h-[44px] w-full rounded-lg border border-ink-soft bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/80 transition-shadow focus:border-brand; }
+  .input:focus { box-shadow: 0 0 0 3px rgb(var(--c-leaf) / 0.2); }
   .label { @apply mb-1.5 block text-sm font-semibold text-ink; }
   .eyebrow { @apply text-xs font-bold uppercase tracking-[0.16em] text-leaf; }
   .card { @apply rounded-xl border border-hairline bg-white shadow-soft; }

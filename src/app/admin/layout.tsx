@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AdminNav } from "./_components/AdminNav";
 
 // Defence in depth: the middleware already 404s /admin in production. If it were ever bypassed,
 // this layout refuses to render too. Remove only when real authentication guards this route.
@@ -12,7 +13,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="bg-gold px-4 py-2 text-center text-sm font-semibold text-deep">
         Development preview only. This area has no authentication and is disabled on every deployed site.
       </div>
-      {children}
+      <div className="lg:flex">
+        <AdminNav />
+        <div className="min-w-0 flex-1 px-4 pb-16 sm:px-6">{children}</div>
+      </div>
     </div>
   );
 }

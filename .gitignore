@@ -11,3 +11,4 @@ dev.log
 .env*
 start.log
 *.log
+.data

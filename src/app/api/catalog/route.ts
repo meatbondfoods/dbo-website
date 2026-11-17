@@ -1,8 +1,7 @@
-import { getRepositories } from "@/lib/repositories";
+import { getStorefront } from "@/lib/content/server";
 import { json } from "@/lib/http";
 
 export async function GET() {
-  const { catalog, source } = getRepositories();
-  const [categories, products] = await Promise.all([catalog.listCategories(), catalog.listProducts()]);
-  return json({ source, categories, products });
+  const { categories, visible } = await getStorefront();
+  return json({ source: "demo", categories, products: visible });
 }

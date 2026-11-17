@@ -9,7 +9,7 @@ import { SearchBar } from "./SearchBar";
 import { useCart, useHydrated } from "@/store/cart";
 import { useUI } from "@/store/ui";
 
-export function Header({ categories }: { categories: Category[] }) {
+export function Header({ categories, announcement }: { categories: Category[]; announcement: string }) {
   const pathname = usePathname();
   const hydrated = useHydrated();
   const count = useCart((s) => s.lines.reduce((n, l) => n + l.quantity, 0));
@@ -41,9 +41,7 @@ export function Header({ categories }: { categories: Category[] }) {
   const cartLabel = `Open cart, ${hydrated ? count : 0} item${count === 1 ? "" : "s"}`;
   return (
     <header className="sticky top-0 z-40 border-b border-hairline bg-white">
-      <div className="on-dark bg-deep py-2 text-center text-xs font-medium text-white">
-        <span className="text-gold">Free delivery</span> on orders over ৳1,500 · Cash on delivery available
-      </div>
+      {announcement && <div className="on-dark bg-deep py-2 text-center text-xs font-medium text-white">{announcement}</div>}
       <div className="container-page flex h-[72px] items-center gap-6">
         <Wordmark />
         <nav aria-label="Main" className="ml-4 hidden items-center gap-7 lg:flex">

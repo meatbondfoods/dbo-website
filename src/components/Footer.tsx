@@ -1,19 +1,16 @@
 import Link from "next/link";
 import { Facebook, Instagram, Mail, MapPin, Phone, Youtube } from "lucide-react";
 import type { Category } from "@/lib/domain/types";
+import type { ContentMap } from "@/lib/content/schema";
 import { Wordmark } from "./Wordmark";
 
-// Contact + social details come from env (see .env.example). Nothing is invented: unset means hidden.
-const phone = process.env.NEXT_PUBLIC_CONTACT_PHONE;
-const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
-const address = process.env.NEXT_PUBLIC_CONTACT_ADDRESS;
-const SOCIAL = [
-  { label: "Facebook", href: process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK, Icon: Facebook },
-  { label: "Instagram", href: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM, Icon: Instagram },
-  { label: "YouTube", href: process.env.NEXT_PUBLIC_SOCIAL_YOUTUBE, Icon: Youtube },
-].filter((s): s is { label: string; href: string; Icon: typeof Facebook } => !!s.href);
-
-export function Footer({ categories }: { categories: Category[] }) {
+// Contact details and social links come from the admin-managed "site" content. Nothing is invented: blank means hidden.
+export function Footer({ categories, site }: { categories: Category[]; site: ContentMap["site"] }) {
+  const social = [
+    { label: "Facebook", href: site.facebook, Icon: Facebook },
+    { label: "Instagram", href: site.instagram, Icon: Instagram },
+    { label: "YouTube", href: site.youtube, Icon: Youtube },
+  ].filter((s) => s.href);
   const col = "text-xs font-bold uppercase tracking-[0.16em] text-gold";
   const a = "text-sm text-white/85 transition-colors hover:text-white hover:underline underline-offset-4";
   return (
@@ -21,10 +18,10 @@ export function Footer({ categories }: { categories: Category[] }) {
       <div className="container-page grid gap-10 py-16 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr]">
         <div>
           <Wordmark light />
-          <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/80">Premium meat, poultry and food shopping from MeatBond Foods, packed with care and delivered across Dhaka.</p>
-          {SOCIAL.length > 0 && (
+          <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/80">{site.footerBlurb}</p>
+          {social.length > 0 && (
             <ul className="mt-6 flex gap-2" aria-label="Social media">
-              {SOCIAL.map(({ label, href, Icon }) => <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/25 hover:bg-white/10"><Icon size={18} aria-hidden /></a></li>)}
+              {social.map(({ label, href, Icon }) => <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/25 hover:bg-white/10"><Icon size={18} aria-hidden /></a></li>)}
             </ul>
           )}
         </div>
@@ -34,11 +31,11 @@ export function Footer({ categories }: { categories: Category[] }) {
         <nav aria-label="Customer support"><h2 className={col}>Support</h2>
           <ul className="mt-4 space-y-2.5">{[["Track an order", "/track"], ["My account", "/account"], ["Delivery information", "/delivery-information"], ["FAQs", "/faqs"], ["Contact us", "/contact"], ["About Us", "/about"]].map(([l, h]) => <li key={h}><Link href={h} className={a}>{l}</Link></li>)}</ul></nav>
         <div><h2 className={col}>Contact</h2>
-          {phone || email || address ? (
+          {site.phone || site.email || site.address ? (
             <ul className="mt-4 space-y-3 text-sm text-white/85">
-              {phone && <li className="flex gap-2.5"><Phone size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><a href={`tel:${phone.replace(/\s/g, "")}`} className="hover:underline">{phone}</a></li>}
-              {email && <li className="flex gap-2.5"><Mail size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><a href={`mailto:${email}`} className="break-all hover:underline">{email}</a></li>}
-              {address && <li className="flex gap-2.5"><MapPin size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><span>{address}</span></li>}
+              {site.phone && <li className="flex gap-2.5"><Phone size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><a href={`tel:${site.phone.replace(/\s/g, "")}`} className="hover:underline">{site.phone}</a></li>}
+              {site.email && <li className="flex gap-2.5"><Mail size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><a href={`mailto:${site.email}`} className="break-all hover:underline">{site.email}</a></li>}
+              {site.address && <li className="flex gap-2.5"><MapPin size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><span>{site.address}</span></li>}
             </ul>
           ) : <p className="mt-4 text-sm text-white/80">Phone, email and address will appear here once confirmed. <Link href="/contact" className="font-semibold text-white underline underline-offset-4">Contact page</Link></p>}
         </div>

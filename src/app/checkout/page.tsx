@@ -3,11 +3,12 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, useHydrated } from "@/store/cart";
 import { useCatalog } from "@/lib/useCatalog";
-import { priceLines } from "@/lib/pricing";
+import { areaDistance, deliveryCharge, priceLines } from "@/lib/pricing";
+import { useCommerce } from "@/lib/useCommerce";
 import { taka } from "@/lib/format";
 import { rememberOrder } from "@/lib/localOrders";
 import type { PaymentMethod } from "@/lib/domain/types";
-import { TextArea, TextInput } from "@/components/ui/FormControls";
+import { Field, TextArea, TextInput } from "@/components/ui/FormControls";
 import { Button, ButtonLink } from "@/components/ui/Button";
 
 const PAY: { id: PaymentMethod; label: string; note: string }[] = [
@@ -22,6 +23,8 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { lines, clear } = useCart();
   const { products } = useCatalog();
+  const commerce = useCommerce();
+  const [area, setArea] = useState("");
   const [pay, setPay] = useState<PaymentMethod>("cod");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -29,12 +32,17 @@ export default function CheckoutPage() {
   // One key per checkout attempt: a double-click or retry reuses it, so the server never creates two orders.
   const keyRef = useRef<string>(crypto.randomUUID());
 
-  if (!hydrated || !products) return <div className="container-page py-20 text-sm text-ink-soft" role="status">Loading checkout…</div>;
+  if (!hydrated || !products || !commerce) return <div className="container-page py-20 text-sm text-ink-soft" role="status">Loading checkout…</div>;
   if (lines.length === 0)
     return <div className="container-page flex flex-col items-center py-24 text-center"><h1 className="text-3xl">Nothing to check out</h1><p className="mt-2 text-ink-soft">Your cart is empty.</p><ButtonLink href="/shop" className="mt-7 px-8">Browse the shop</ButtonLink></div>;
 
-  let totals: ReturnType<typeof priceLines>;
-  try { totals = priceLines(lines, products); } catch (e) {
+  let totals: { subtotal: number; deliveryCharge: number; total: number };
+  try {
+    const { subtotal } = priceLines(lines, products);
+    // Same rule the server applies (the server is authoritative and recomputes from the area name).
+    const charge = deliveryCharge(subtotal, area ? areaDistance(area, commerce) : null, commerce);
+    totals = { subtotal, deliveryCharge: charge, total: subtotal + charge };
+  } catch (e) {
     return <div className="container-page py-20"><p role="alert" className="font-medium text-danger">{(e as Error).message}.</p><ButtonLink href="/cart" variant="outline" className="mt-5">Back to cart</ButtonLink></div>;
   }
 
@@ -43,6 +51,7 @@ export default function CheckoutPage() {
     if (busy) return;
     const f = new FormData(e.currentTarget);
     const get = (k: string) => String(f.get(k) ?? "");
+    if (!area) { setError("Please choose your delivery area."); return; }
     setBusy(true); setError(""); setFe({});
     try {
       const res = await fetch("/api/orders", {
@@ -50,7 +59,7 @@ export default function CheckoutPage() {
         headers: { "content-type": "application/json", "idempotency-key": keyRef.current },
         body: JSON.stringify({
           customer: { name: get("name"), phone: get("phone"), email: get("email") },
-          address: { line1: get("line1"), area: get("area"), city: get("city"), notes: get("notes") || undefined },
+          address: { line1: get("line1"), area, city: get("city"), notes: get("notes") || undefined },
           paymentMethod: pay, lines,
         }),
       });
@@ -84,7 +93,7 @@ export default function CheckoutPage() {
           </fieldset>
           <fieldset className={sec}><legend className="mb-1 text-lg font-bold text-deep">2. Delivery address</legend>
             <TextInput label="Address" name="line1" required autoComplete="street-address" placeholder="House, road, block" error={fe.line1?.[0] && "Please enter your street address"} />
-            <div className="grid gap-4 sm:grid-cols-2"><TextInput label="Area" name="area" required /><TextInput label="City" name="city" required defaultValue="Dhaka" /></div>
+            <div className="grid gap-4 sm:grid-cols-2"><Field label="Area" hint={`Free delivery within ${commerce.freeRadiusKm} km`}>{({ id, describedBy }) => (<select id={id} aria-describedby={describedBy} required value={area} onChange={(e) => setArea(e.target.value)} className="input"><option value="">Choose your area</option>{commerce.areas.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}<option value="Other area">Other area</option></select>)}</Field><TextInput label="City" name="city" required defaultValue="Dhaka" /></div>
             <TextArea label="Delivery notes (optional)" name="notes" rows={2} />
           </fieldset>
           <fieldset className={sec}><legend className="mb-1 text-lg font-bold text-deep">3. Payment method</legend>
@@ -107,7 +116,7 @@ export default function CheckoutPage() {
           </ul>
           <dl className="mt-5 space-y-2.5 border-t border-hairline pt-5 text-sm">
             <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{taka(totals.subtotal)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{totals.deliveryCharge === 0 ? "Free" : taka(totals.deliveryCharge)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{!area ? "Choose your area" : totals.deliveryCharge === 0 ? "Free" : taka(totals.deliveryCharge)}</dd></div>
             <div className="flex justify-between border-t border-hairline pt-3 text-lg font-bold text-deep"><dt>Total</dt><dd>{taka(totals.total)}</dd></div>
           </dl>
           {error && <p role="alert" className="mt-5 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm font-medium text-danger">{error}</p>}

@@ -1,26 +1,28 @@
 /**
- * MeatBond Mart design tokens: the single source of truth for colour.
- * Every component uses these semantic names; never hard-code hex values in components.
- * Contrast notes (WCAG 2.2 AA): ink/ink-soft pass 4.5:1 on canvas and white (ink-soft does NOT on mint,
- * so use ink on mint). Gold is for fills and accents on deep green, never for text on light backgrounds.
+ * MeatBond Mart design tokens. Colours are CSS variables (space-separated RGB) so an admin can publish a
+ * theme without a code change. Defaults live in globals.css :root and in src/lib/content/defaults.ts.
+ * Never hard-code hex values in components. Publishing a theme is blocked unless every text pairing
+ * still meets WCAG 4.5:1 (src/lib/content/contrast.ts).
  */
+const v = (name) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
 module.exports = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        brand: "#124C32",        // Primary Forest Green
-        deep: "#0B3525",         // Deep Forest Green
-        leaf: "#176B3A",         // Secondary Green
-        mint: "#D9F3E5",         // Soft Mint
-        "mint-light": "#EFF8F2", // Light Mint
-        gold: "#D6AD45",         // Premium Gold (sparingly)
-        canvas: "#F7F9F6",       // Main background
-        ink: "#26352D",          // Primary text
-        "ink-soft": "#64746A",   // Secondary text
-        hairline: "#E3EAE4",     // Borders
-        danger: "#C62828",
-        success: "#18804A",
+        brand: v("brand"),         // Primary Forest Green      #124C32
+        deep: v("deep"),           // Deep Forest Green         #0B3525
+        leaf: v("leaf"),           // Secondary Green           #176B3A
+        mint: v("mint"),           // Soft Mint                 #D9F3E5
+        "mint-light": v("mint-light"), // Light Mint            #EFF8F2
+        gold: v("gold"),           // Premium Gold, sparingly   #D6AD45
+        canvas: v("canvas"),       // Main background           #F7F9F6
+        ink: v("ink"),             // Primary text              #26352D
+        "ink-soft": v("ink-soft"), // Secondary text            #64746A
+        hairline: v("hairline"),   // Borders                   #E3EAE4
+        danger: v("danger"),       // Error                     #C62828
+        success: v("success"),     // Success                   #18804A
       },
       fontFamily: { sans: ["var(--font-sans)", "system-ui", "sans-serif"] },
       maxWidth: { page: "78rem" },

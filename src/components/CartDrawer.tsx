@@ -6,7 +6,8 @@ import { ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "@/store/cart";
 import { useUI } from "@/store/ui";
 import { useCatalog } from "@/lib/useCatalog";
-import { DELIVERY_CHARGE, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
+import { deliverySummary } from "@/lib/pricing";
+import { useCommerce } from "@/lib/useCommerce";
 import { taka } from "@/lib/format";
 import { QuantitySelector } from "./ui/QuantitySelector";
 import { ButtonLink } from "./ui/Button";
@@ -16,6 +17,7 @@ export function CartDrawer() {
   const close = useUI((s) => s.closeDrawer);
   const { lines, setQty, remove } = useCart();
   const { products } = useCatalog();
+  const commerce = useCommerce();
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -44,8 +46,6 @@ export function CartDrawer() {
     return p && o ? [{ l, p, o }] : [];
   });
   const subtotal = rows.reduce((n, r) => n + r.o.price * r.l.quantity, 0);
-  const delivery = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
-  const progress = Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -65,10 +65,7 @@ export function CartDrawer() {
           </div>
         ) : (
           <>
-            <div className="border-b border-hairline bg-mint-light px-5 py-3 text-sm">
-              {delivery === 0 ? <p className="font-semibold text-deep">You&apos;ve unlocked free delivery.</p> : <p className="text-ink">Add <strong>{taka(FREE_DELIVERY_THRESHOLD - subtotal)}</strong> more for free delivery.</p>}
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white" role="progressbar" aria-label="Progress to free delivery" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${progress}%` }} /></div>
-            </div>
+            <div className="border-b border-hairline bg-mint-light px-5 py-3 text-sm text-ink">{commerce ? deliverySummary(commerce) + ". Delivery is calculated at checkout." : "Delivery is calculated at checkout."}</div>
             <ul className="flex-1 divide-y divide-hairline overflow-y-auto px-5">
               {rows.map(({ l, p, o }) => (
                 <li key={l.productId + l.optionId} className="flex gap-3 py-4">
@@ -89,8 +86,8 @@ export function CartDrawer() {
             <div className="border-t border-hairline px-5 py-4">
               <dl className="space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{taka(subtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{delivery === 0 ? "Free" : taka(delivery)}</dd></div>
-                <div className="flex justify-between pt-2 text-base font-bold text-deep"><dt>Total</dt><dd>{taka(subtotal + delivery)}</dd></div>
+                <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>At checkout</dd></div>
+                <div className="flex justify-between pt-2 text-base font-bold text-deep"><dt>Total before delivery</dt><dd>{taka(subtotal)}</dd></div>
               </dl>
               <div className="mt-4 grid gap-2">
                 <ButtonLink href="/checkout" onClick={close}>Checkout</ButtonLink>
