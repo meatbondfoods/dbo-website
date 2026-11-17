@@ -7,7 +7,8 @@ export interface CatalogRepository {
   getProductBySlug(slug: string): Promise<Product | null>;
 }
 export interface OrderRepository {
-  createOrder(input: OrderInput): Promise<Order>;
+  /** Must be idempotent: the same key returns the original order, never a second one. */
+  createOrder(input: OrderInput, idempotencyKey: string): Promise<Order>;
   getOrderByReference(reference: string, phone: string): Promise<Order | null>;
   listOrdersForPhone(phone: string): Promise<Order[]>;
 }

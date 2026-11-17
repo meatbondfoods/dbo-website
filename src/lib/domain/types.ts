@@ -1,6 +1,7 @@
 // Storefront domain model. Deliberately independent of ERP table/column names:
 // the ERP adapter is responsible for mapping ERP records into these shapes.
-export type OrderStatus = "pending" | "confirmed" | "processing" | "out_for_delivery" | "delivered" | "cancelled";
+// Mirrors the ERP sales_order_status enum so the adapter needs no status translation.
+export type OrderStatus = "draft" | "confirmed" | "processing" | "ready" | "dispatched" | "delivered" | "cancelled";
 export type PaymentMethod = "cod" | "bkash" | "nagad" | "card";
 export type Availability = "in_stock" | "low_stock" | "out_of_stock";
 
@@ -19,5 +20,5 @@ export interface OrderInput {
 }
 export interface Order {
   id: string; reference: string; status: OrderStatus; createdAt: string;
-  subtotal: number; deliveryCharge: number; total: number; input: OrderInput;
+  subtotal: number; deliveryCharge: number; total: number; input: OrderInput; idempotencyKey: string;
 }

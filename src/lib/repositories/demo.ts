@@ -1,0 +1,37 @@
+import { DEMO_CATEGORIES, DEMO_PRODUCTS } from "../demo/data";
+import type { Order, OrderInput } from "../domain/types";
+import { priceLines } from "../pricing";
+import type { CatalogRepository, OrderRepository } from "./types";
+
+export class DemoCatalogRepository implements CatalogRepository {
+  async listCategories() { return DEMO_CATEGORIES; }
+  async listProducts() { return DEMO_PRODUCTS; }
+  async getProductBySlug(slug: string) { return DEMO_PRODUCTS.find((p) => p.slug === slug) ?? null; }
+}
+
+// In-memory only: demo orders reset when the server restarts. Never used with real data.
+// Held on globalThis so every route bundle (dev compiles them separately) shares one list.
+const g = globalThis as unknown as { __martDemoOrders?: Order[] };
+const orders: Order[] = (g.__martDemoOrders ??= []);
+const normPhone = (p: string) => p.replace(/\D/g, "").replace(/^880/, "0");
+
+export class DemoOrderRepository implements OrderRepository {
+  async createOrder(input: OrderInput, idempotencyKey: string): Promise<Order> {
+    const existing = orders.find((o) => o.idempotencyKey === idempotencyKey);
+    if (existing) return existing; // duplicate submission returns the original order
+    const totals = priceLines(input.lines, DEMO_PRODUCTS);
+    const order: Order = {
+      id: crypto.randomUUID(),
+      reference: `MM-${new Date().getFullYear()}-${String(orders.length + 1).padStart(4, "0")}`,
+      status: "confirmed", createdAt: new Date().toISOString(), ...totals, input, idempotencyKey,
+    };
+    orders.push(order);
+    return order;
+  }
+  async getOrderByReference(reference: string, phone: string) {
+    return orders.find((o) => o.reference === reference && normPhone(o.input.customer.phone) === normPhone(phone)) ?? null;
+  }
+  async listOrdersForPhone(phone: string) {
+    return orders.filter((o) => normPhone(o.input.customer.phone) === normPhone(phone));
+  }
+}
