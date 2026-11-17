@@ -9,3 +9,5 @@ dev.log
 
 .vercel
 .env*
+start.log
+*.log
