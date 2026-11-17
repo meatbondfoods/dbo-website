@@ -167,3 +167,20 @@ test("auth mode: demo is impossible in production; Supabase needs explicit opt-i
     assert.equal(set({ NODE_ENV: "development", MART_AUTH: "off" }), "off");
   } finally { for (const k of Object.keys(process.env)) if (!(k in keep)) delete process.env[k]; Object.assign(process.env, keep); }
 });
+
+import { adminAllowed } from "../src/lib/adminGate.ts";
+test("admin gate: open in development; in production only with the deliberate switch AND real auth AND Supabase keys", () => {
+  const keep = { ...process.env };
+  const set = (env: Record<string, string | undefined>) => { for (const k of ["NODE_ENV", "MART_ADMIN", "MART_AUTH", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]) delete process.env[k]; Object.assign(process.env, env); return adminAllowed(); };
+  try {
+    const keys = { NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon" };
+    assert.equal(set({ NODE_ENV: "development" }), true);
+    assert.equal(set({ NODE_ENV: "production" }), false);                                                       // today's live site
+    assert.equal(set({ NODE_ENV: "production", MART_ADMIN: "enabled" }), false);                               // switch alone is not enough
+    assert.equal(set({ NODE_ENV: "production", MART_ADMIN: "enabled", MART_AUTH: "demo", ...keys }), false);   // demo auth can never open production
+    assert.equal(set({ NODE_ENV: "production", MART_AUTH: "supabase", ...keys }), false);                      // auth alone is not enough
+    assert.equal(set({ NODE_ENV: "production", MART_ADMIN: "true", MART_AUTH: "supabase", ...keys }), false); // exact value required
+    assert.equal(set({ NODE_ENV: "production", MART_ADMIN: "enabled", MART_AUTH: "supabase" }), false);        // no keys
+    assert.equal(set({ NODE_ENV: "production", MART_ADMIN: "enabled", MART_AUTH: "supabase", ...keys }), true);
+  } finally { for (const k of Object.keys(process.env)) if (!(k in keep)) delete process.env[k]; Object.assign(process.env, keep); }
+});

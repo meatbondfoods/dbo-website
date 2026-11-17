@@ -28,12 +28,16 @@ DROP POLICY IF EXISTS site_media_admin_delete ON storage.objects;
 CREATE POLICY site_media_admin_delete ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'site-media' AND public.site_admin_role() IS NOT DISTINCT FROM 'owner');
 
--- ---- Bootstrapping the first website admin ---------------------------------------------------------
--- There is deliberately NO application path that grants admin rights. The first owner is added by a database
--- administrator, after that person has created and verified a normal Supabase Auth account:
+-- ---- Website admins --------------------------------------------------------------------------------
+-- ERP SUPER ADMINS NEED NO SETUP: site_admin_role() (migration 102) treats an active ERP super admin as a website
+-- owner, using the same Supabase login they already use for the ERP.
+--
+-- Anyone else (for example a marketing editor who is NOT an ERP user) is added by a database administrator after
+-- that person has created and verified a normal Supabase Auth account. There is deliberately NO application path
+-- that grants admin rights:
 --
 --   INSERT INTO public.site_admins (user_id, role)
---   SELECT id, 'owner' FROM auth.users WHERE email = '<owner email>';
+--   SELECT id, 'editor' FROM auth.users WHERE email = '<editor email>';     -- or 'viewer'
 --
 -- Customers can never reach site_admins: it has RLS enabled and no INSERT/UPDATE policy for any role.
 -- Admin sign-in uses the same Supabase Auth, then the server checks site_admin_role() on every request.

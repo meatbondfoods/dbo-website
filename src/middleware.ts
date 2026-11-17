@@ -1,15 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { adminAllowed } from "./lib/adminGate";
 
 /**
- * SAFETY GATE. The admin panel has no real authentication yet, so it must not be reachable on any
- * deployed site. In production (including Vercel preview deployments) /admin and /api/admin answer 404,
- * as if they did not exist. They are available only on a local `next dev` server.
- *
- * This gate must be replaced by real Supabase authentication plus a site_admins role check
- * (migration 102) before /admin is ever enabled in production.
+ * SAFETY GATE. /admin and /api/admin answer 404, as if they did not exist, on every deployed site
+ * (including Vercel previews) unless adminAllowed() is true: that needs the deliberate switch MART_ADMIN=enabled
+ * AND real Supabase authentication (MART_AUTH=supabase + keys). On a local `next dev` server it is always open
+ * (demo admin). Inside the area, every page and API call still requires a signed-in admin with a server-side role.
  */
 export function middleware(req: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
+  if (!adminAllowed()) {
     return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
   }
   return NextResponse.next();

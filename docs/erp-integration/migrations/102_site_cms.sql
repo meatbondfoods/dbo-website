@@ -15,10 +15,23 @@ CREATE TABLE IF NOT EXISTS public.site_admins (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Who is a website admin, decided entirely in the database:
+--   1. An ACTIVE ERP super admin is a website OWNER automatically. This reuses the ERP's existing
+--      public.is_super_admin() (migration 015: an active user_profiles row with role 'super_admin' whose id = auth.uid()),
+--      so the website adds no second owner list and no extra ERP table. DEPENDS ON THE ERP SCHEMA being in this database.
+--   2. Otherwise the role (editor / viewer / owner) stored in site_admins for that user, if active.
+--   3. Otherwise NULL: every website customer and every other ERP user has no website-admin rights.
+-- Deactivating a user in the ERP (is_active = false) therefore removes their website-admin access at the same moment.
 CREATE OR REPLACE FUNCTION public.site_admin_role()
 RETURNS TEXT LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
-  SELECT role FROM site_admins WHERE user_id = auth.uid() AND is_active
+  SELECT CASE
+    WHEN auth.uid() IS NULL THEN NULL
+    WHEN public.is_super_admin() THEN 'owner'
+    ELSE (SELECT role FROM site_admins WHERE user_id = auth.uid() AND is_active)
+  END
 $$;
+REVOKE ALL ON FUNCTION public.site_admin_role() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.site_admin_role() TO authenticated;
 CREATE OR REPLACE FUNCTION public.can_edit_site() RETURNS BOOLEAN LANGUAGE sql STABLE AS $$
   SELECT COALESCE(public.site_admin_role() IN ('owner', 'editor'), FALSE) $$;
 
