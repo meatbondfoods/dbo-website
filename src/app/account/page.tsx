@@ -36,21 +36,21 @@ export default function AccountPage() {
     setProfile(p); setMsg("");
   }
 
-  if (!ready) return <div className="container-page py-16 text-sm text-charcoal/60" role="status">Loading…</div>;
+  if (!ready) return <div className="container-page py-16 text-sm text-ink-soft" role="status">Loading…</div>;
 
   if (!profile)
     return (
       <div className="container-page max-w-md py-12">
         <h1 className="text-4xl">{mode === "register" ? "Create account" : "Log in"}</h1>
-        <p className="mt-2 text-sm text-charcoal/65">Demo account stored on this device only. <Link href="/track" className="underline">Track an order without an account</Link>.</p>
+        <p className="mt-2 text-sm text-ink-soft">Demo account stored on this device only. <Link href="/track" className="underline">Track an order without an account</Link>.</p>
         <form onSubmit={save} className="mt-8 space-y-4">
           {mode === "register" && <div><label className="label" htmlFor="n">Full name</label><input id="n" name="name" required className="input" autoComplete="name" /></div>}
           <div><label className="label" htmlFor="p">Mobile number</label><input id="p" name="phone" required inputMode="tel" className="input" autoComplete="tel" placeholder="01XXXXXXXXX" /></div>
           {mode === "register" && <div><label className="label" htmlFor="e">Email (optional)</label><input id="e" name="email" type="email" className="input" autoComplete="email" /></div>}
-          {msg && <p role="alert" className="text-sm text-clay">{msg}</p>}
+          {msg && <p role="alert" className="text-sm text-danger">{msg}</p>}
           <button className="btn-primary w-full">{mode === "register" ? "Create account" : "Log in"}</button>
         </form>
-        <button onClick={() => { setMode(mode === "register" ? "login" : "register"); setMsg(""); }} className="mt-4 text-sm text-forest underline">
+        <button onClick={() => { setMode(mode === "register" ? "login" : "register"); setMsg(""); }} className="mt-4 text-sm text-brand underline">
           {mode === "register" ? "Already have an account? Log in" : "New here? Create an account"}
         </button>
       </div>
@@ -59,14 +59,14 @@ export default function AccountPage() {
   return (
     <div className="container-page max-w-3xl py-12">
       <div className="flex items-start justify-between gap-4">
-        <div><h1 className="text-4xl">Hello, {profile.name.split(" ")[0]}</h1><p className="mt-1 text-sm text-charcoal/65">{profile.phone}{profile.email && ` · ${profile.email}`}</p></div>
+        <div><h1 className="text-4xl">Hello, {profile.name.split(" ")[0]}</h1><p className="mt-1 text-sm text-ink-soft">{profile.phone}{profile.email && ` · ${profile.email}`}</p></div>
         <button onClick={() => { try { localStorage.removeItem(KEY); } catch { /* ignore */ } setProfile(null); }} className="btn-outline">Log out</button>
       </div>
       <h2 className="mb-4 mt-10 text-2xl">Order history</h2>
       {orders.length === 0 ? (
-        <div className="rounded-md border border-dashed border-line bg-white p-10 text-center">
-          <p className="font-serif text-xl">{local.length ? "Loading your orders…" : "No orders yet"}</p>
-          <p className="mt-2 text-sm text-charcoal/65">Orders you place on this device will appear here with live status.</p>
+        <div className="rounded-md border border-dashed border-hairline bg-white p-10 text-center">
+          <p className="text-xl">{local.length ? "Loading your orders…" : "No orders yet"}</p>
+          <p className="mt-2 text-sm text-ink-soft">Orders you place on this device will appear here with live status.</p>
           <Link href="/shop" className="btn-primary mt-5">Start shopping</Link>
         </div>
       ) : <div className="space-y-6">{orders.map((o) => <OrderStatusView key={o.reference} order={o} />)}</div>}

@@ -1,32 +1,34 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { ShoppingBag, Trash2 } from "lucide-react";
 import { useCart, useHydrated } from "@/store/cart";
 import { useCatalog } from "@/lib/useCatalog";
 import { DELIVERY_CHARGE, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 import { taka } from "@/lib/format";
+import { QuantitySelector } from "@/components/ui/QuantitySelector";
+import { ButtonLink } from "@/components/ui/Button";
 
 export default function CartPage() {
   const hydrated = useHydrated();
   const { lines, setQty, remove } = useCart();
   const { products, error } = useCatalog();
 
-  if (!hydrated || (!products && !error)) return <div className="container-page py-16 text-sm text-charcoal/60" role="status">Loading your cart…</div>;
-  if (error) return <div className="container-page py-16"><p role="alert">We couldn&apos;t load product prices. Please refresh.</p></div>;
+  if (!hydrated || (!products && !error)) return <div className="container-page py-20 text-sm text-ink-soft" role="status">Loading your cart…</div>;
+  if (error) return <div className="container-page py-20"><p role="alert" className="font-medium text-danger">We couldn&apos;t load product prices. Please refresh the page.</p></div>;
 
   const rows = lines.flatMap((l) => {
-    const p = products!.find((x) => x.id === l.productId);
-    const o = p?.options.find((x) => x.id === l.optionId);
+    const p = products!.find((x) => x.id === l.productId); const o = p?.options.find((x) => x.id === l.optionId);
     return p && o ? [{ l, p, o }] : [];
   });
 
   if (rows.length === 0)
     return (
-      <div className="container-page py-20 text-center">
-        <h1 className="text-3xl">Your cart is empty</h1>
-        <p className="mt-3 text-sm text-charcoal/65">Add some fresh cuts and they&apos;ll show up here.</p>
-        <Link href="/shop" className="btn-primary mt-6">Browse the shop</Link>
+      <div className="container-page flex flex-col items-center py-24 text-center">
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-mint-light text-brand"><ShoppingBag size={34} aria-hidden /></span>
+        <h1 className="mt-6 text-3xl">Your cart is empty</h1>
+        <p className="mt-2 text-ink-soft">Add some fresh cuts and they&apos;ll show up here.</p>
+        <ButtonLink href="/shop" className="mt-7 px-8">Browse the shop</ButtonLink>
       </div>
     );
 
@@ -35,38 +37,35 @@ export default function CartPage() {
 
   return (
     <div className="container-page py-10">
-      <h1 className="text-4xl">Your cart</h1>
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_340px]">
-        <ul className="divide-y divide-line border-y border-line">
+      <h1 className="text-3xl sm:text-4xl">Your cart</h1>
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
+        <ul className="card divide-y divide-hairline px-5">
           {rows.map(({ l, p, o }) => (
-            <li key={`${l.productId}-${l.optionId}`} className="flex gap-4 py-5">
-              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md border border-line"><Image src={p.images[0]} alt={p.name} fill unoptimized className="object-cover" /></div>
-              <div className="flex flex-1 flex-col justify-between">
+            <li key={l.productId + l.optionId} className="flex gap-4 py-5">
+              <Link href={`/product/${p.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-hairline"><Image src={p.images[0]} alt={p.name} fill unoptimized className="object-cover" /></Link>
+              <div className="flex flex-1 flex-col justify-between gap-3">
                 <div className="flex justify-between gap-3">
-                  <div><Link href={`/product/${p.slug}`} className="font-serif text-lg hover:text-forest">{p.name}</Link><p className="text-sm text-charcoal/60">{o.label} · {taka(o.price)}</p></div>
-                  <p className="font-semibold">{taka(o.price * l.quantity)}</p>
+                  <div><Link href={`/product/${p.slug}`} className="text-base font-semibold text-deep hover:underline">{p.name}</Link><p className="text-sm text-ink-soft">{o.label} · {taka(o.price)} each</p></div>
+                  <p className="font-bold">{taka(o.price * l.quantity)}</p>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center rounded-md border border-line bg-white" role="group" aria-label={`Quantity for ${p.name}`}>
-                    <button aria-label="Decrease quantity" className="p-2 disabled:opacity-40" disabled={l.quantity <= 1} onClick={() => setQty(l.productId, l.optionId, l.quantity - 1)}><Minus size={14} /></button>
-                    <span className="w-8 text-center text-sm">{l.quantity}</span>
-                    <button aria-label="Increase quantity" className="p-2 disabled:opacity-40" disabled={l.quantity >= 50} onClick={() => setQty(l.productId, l.optionId, l.quantity + 1)}><Plus size={14} /></button>
-                  </div>
-                  <button onClick={() => remove(l.productId, l.optionId)} className="inline-flex items-center gap-1 text-sm text-charcoal/60 hover:text-clay"><Trash2 size={14} /> Remove</button>
+                  <QuantitySelector value={l.quantity} onChange={(n) => setQty(l.productId, l.optionId, n)} label={`${p.name} ${o.label}`} />
+                  <button onClick={() => remove(l.productId, l.optionId)} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-ink-soft hover:bg-mint-light hover:text-danger"><Trash2 size={16} aria-hidden /> Remove</button>
                 </div>
               </div>
             </li>
           ))}
         </ul>
-        <aside className="h-fit rounded-md border border-line bg-white p-6" aria-label="Order summary">
+        <aside className="card h-fit p-6 lg:sticky lg:top-32" aria-label="Order summary">
           <h2 className="text-xl">Order summary</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between"><dt>Subtotal</dt><dd>{taka(subtotal)}</dd></div>
-            <div className="flex justify-between"><dt>Delivery</dt><dd>{delivery === 0 ? "Free" : taka(delivery)}</dd></div>
-            <div className="flex justify-between border-t border-line pt-3 text-base font-semibold"><dt>Total</dt><dd>{taka(subtotal + delivery)}</dd></div>
+          <dl className="mt-5 space-y-3 text-sm">
+            <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd className="font-medium">{taka(subtotal)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd className="font-medium">{delivery === 0 ? "Free" : taka(delivery)}</dd></div>
+            <div className="flex justify-between border-t border-hairline pt-4 text-lg font-bold text-deep"><dt>Total</dt><dd>{taka(subtotal + delivery)}</dd></div>
           </dl>
-          {delivery > 0 && <p className="mt-3 text-xs text-charcoal/60">Add {taka(FREE_DELIVERY_THRESHOLD - subtotal)} more for free delivery.</p>}
-          <Link href="/checkout" className="btn-primary mt-5 w-full">Checkout</Link>
+          {delivery > 0 && <p className="mt-4 rounded-lg bg-mint-light p-3 text-xs text-ink">Add <strong>{taka(FREE_DELIVERY_THRESHOLD - subtotal)}</strong> more for free delivery.</p>}
+          <ButtonLink href="/checkout" className="mt-6 w-full">Proceed to checkout</ButtonLink>
+          <ButtonLink href="/shop" variant="ghost" className="mt-2 w-full">Continue shopping</ButtonLink>
         </aside>
       </div>
     </div>

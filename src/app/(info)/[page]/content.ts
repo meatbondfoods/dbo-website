@@ -7,9 +7,10 @@ export const PAGES: Record<string, Info> = {
     title: "About MeatBond Foods",
     intro: "MeatBond Mart is the shopping brand of MeatBond Foods, a Bangladesh meat and poultry processor.",
     sections: [
-      { heading: "What we do", body: ["We process, pack and deliver fresh chicken, beef, mutton and ready-to-cook foods with a strict cold chain from facility to doorstep."] },
-      { heading: "Our standards", body: ["Every pack is traceable to its processing batch. Products are chilled, weighed to order and dispatched in temperature-controlled vehicles."] },
+      { heading: "What we do", body: ["We process, pack and deliver chicken, meat and ready-to-cook foods, handled with care from our facility to your door."] },
+      { heading: "Our standards", body: ["Products are weighed to order and dispatched chilled. Order records are kept for every sale."] },
     ],
+    notice: "Draft company description: the business should confirm and expand this before launch.",
   },
   contact: {
     title: "Contact us",
@@ -22,7 +23,7 @@ export const PAGES: Record<string, Info> = {
   faqs: {
     title: "Frequently asked questions",
     sections: [
-      { heading: "How fresh is the meat?", body: ["Products are processed daily and kept chilled at 0-4°C until dispatch."] },
+      { heading: "How are products kept fresh?", body: ["Products are packed to order and dispatched chilled."] },
       { heading: "Which areas do you deliver to?", body: ["We currently deliver within Dhaka. See Delivery information for charges and timings."] },
       { heading: "What payment methods are accepted?", body: ["Cash on delivery is available. Online payment options are planned."] },
       { heading: "Can I change or cancel an order?", body: ["Contact us as soon as possible. Orders can be changed until they are packed."] },
@@ -33,7 +34,7 @@ export const PAGES: Record<string, Info> = {
     sections: [
       { heading: "Charges", body: ["Delivery is ৳80 per order, free on orders of ৳1,500 or more."] },
       { heading: "Timing", body: ["Orders confirmed before noon are delivered the same day within Dhaka. Later orders go out the next morning."] },
-      { heading: "Cold chain", body: ["Orders travel in insulated, chilled packaging. Please refrigerate or freeze on arrival."] },
+      { heading: "On arrival", body: ["Orders are delivered chilled. Please refrigerate or freeze products as soon as they arrive."] },
     ],
     notice: "Delivery charge and timings here match the demo settings; confirm with operations before launch.",
   },

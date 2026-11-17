@@ -3,21 +3,32 @@
 @tailwind utilities;
 
 @layer base {
-  body { @apply bg-cream font-sans text-charcoal antialiased; }
-  h1, h2, h3 { @apply font-serif text-forest; }
-  :focus-visible { @apply outline-2 outline-offset-2 outline-forest; outline-style: solid; }
+  html { scroll-behavior: smooth; }
+  body { @apply bg-canvas font-sans text-base leading-relaxed text-ink antialiased; }
+  h1, h2, h3, h4 { @apply font-bold tracking-tight text-deep; }
+  :focus-visible { outline: 3px solid #176B3A; outline-offset: 2px; border-radius: 4px; }
+  .on-dark :focus-visible { outline-color: #D6AD45; }
 }
 
 @layer components {
-  .container-page { @apply mx-auto w-full max-w-page px-4 sm:px-6; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply btn bg-forest text-cream hover:bg-forest-light; }
-  .btn-outline { @apply btn border border-forest text-forest hover:bg-forest-tint; }
-  .input { @apply w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm placeholder:text-charcoal/40; }
-  .label { @apply mb-1 block text-sm font-medium; }
-  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em] text-clay; }
+  .container-page { @apply mx-auto w-full max-w-page px-4 sm:px-6 lg:px-8; }
+
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100; }
+  .btn-primary { @apply btn bg-brand text-white shadow-soft hover:bg-deep; }
+  .btn-gold { @apply btn bg-gold text-deep hover:bg-[#E2BD5C]; }
+  .btn-outline { @apply btn border border-brand bg-white text-brand hover:bg-mint-light; }
+  .btn-ghost { @apply btn text-brand hover:bg-mint-light; }
+  .btn-light { @apply btn bg-white text-deep hover:bg-mint; }
+
+  /* Form control borders use ink-soft so the boundary meets 3:1 non-text contrast. */
+  .input { @apply min-h-[44px] w-full rounded-lg border border-ink-soft bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/80 transition-shadow focus:border-brand focus:shadow-[0_0_0_3px_rgba(23,107,58,0.2)]; }
+  .label { @apply mb-1.5 block text-sm font-semibold text-ink; }
+  .eyebrow { @apply text-xs font-bold uppercase tracking-[0.16em] text-leaf; }
+  .card { @apply rounded-xl border border-hairline bg-white shadow-soft; }
+  .chip { @apply inline-flex items-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

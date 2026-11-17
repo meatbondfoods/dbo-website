@@ -25,7 +25,7 @@ export function TrackForm({ initialReference = "", initialPhone = "" }: { initia
         <div><label htmlFor="tp" className="label">Mobile number</label><input id="tp" name="phone" required defaultValue={initialPhone} inputMode="tel" placeholder="01XXXXXXXXX" className="input" /></div>
         <button className="btn-primary" disabled={busy}>{busy ? "Searching…" : "Track order"}</button>
       </form>
-      {error && <p role="alert" className="mt-4 text-sm text-clay">{error}</p>}
+      {error && <p role="alert" className="mt-4 text-sm text-danger">{error}</p>}
       {order && <div className="mt-8"><OrderStatusView order={order} /></div>}
     </div>
   );
