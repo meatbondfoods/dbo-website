@@ -72,7 +72,8 @@ BEGIN
 END $$;
 
 -- Wire to status changes, AFTER the ERP's own workflow trigger has approved the change.
-CREATE OR REPLACE FUNCTION public.web_so_stock_trigger() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+-- SECURITY DEFINER so staff who change an order's status can trigger the (API-locked) reserve/deduct/release functions.
+CREATE OR REPLACE FUNCTION public.web_so_stock_trigger() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NEW.status IS NOT DISTINCT FROM OLD.status OR NOT public.is_web_sales_order(NEW.id) THEN RETURN NEW; END IF;
   IF NEW.status::TEXT = 'confirmed'  THEN PERFORM public.reserve_stock_for_so(NEW.id);
@@ -87,7 +88,8 @@ CREATE TRIGGER trg_web_so_stock AFTER UPDATE OF status ON public.sales_orders
 
 REVOKE ALL ON FUNCTION public.reserve_stock_for_so(UUID), public.release_stock_for_so(UUID), public.deduct_stock_for_so(UUID) FROM PUBLIC, anon, authenticated;
 ALTER TABLE public.stock_reservations ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.stock_reservations FROM anon;
+REVOKE ALL ON public.stock_reservations FROM PUBLIC, anon, authenticated;     -- only the SECURITY DEFINER functions write it
+GRANT SELECT ON public.stock_reservations TO authenticated;
 CREATE POLICY stock_reservations_view ON public.stock_reservations FOR SELECT TO authenticated
   USING ((SELECT public.has_permission('inventory', 'view')) OR (SELECT public.has_permission('stock', 'view')));
 

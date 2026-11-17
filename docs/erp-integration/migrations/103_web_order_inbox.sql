@@ -32,8 +32,10 @@ BEGIN
 END $$;
 
 -- Same lookup, but NULL instead of an error, for catalogue listing (hides unpriced products).
+-- SECURITY DEFINER: PostgreSQL checks EXECUTE on functions used inside a view against the CALLER, so this wrapper must run
+-- as the owner (which may call web_current_price). It returns only a price or NULL: nothing beyond what the catalogue shows.
 CREATE OR REPLACE FUNCTION public.web_price_or_null(p_product_id UUID)
-RETURNS NUMERIC LANGUAGE plpgsql STABLE AS $$
+RETURNS NUMERIC LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN RETURN public.web_current_price(p_product_id); EXCEPTION WHEN OTHERS THEN RETURN NULL; END $$;
 
 -- ---- Inbox tables ---------------------------------------------------------------------

@@ -1,0 +1,12 @@
+{
+  "name": "db-tests",
+  "private": true,
+  "type": "module",
+  "description": "Runs the website migrations (101-106) against an in-memory PostgreSQL loaded with the ERP schema, and checks real behaviour.",
+  "scripts": {
+    "test": "node scenario.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.16"
+  }
+}

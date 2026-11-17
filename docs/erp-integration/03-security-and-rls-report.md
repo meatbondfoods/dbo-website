@@ -60,3 +60,28 @@ on `sales_orders` for web-originated orders only and still needs your explicit a
 7. **Image hosting.** Dev uploads go to `public/uploads` (not deployed). Production needs the `site-media` bucket (106) wired to the admin session.
 8. **On hold.** The ERP `sales_order_status` has no "on hold" value. It is modelled on the web inbox record until the ERP mapping is agreed.
 9. **Password breach checking** (for example Have I Been Pwned) is not implemented; Supabase offers leaked-password protection on paid plans.
+
+## 5. Verified by execution in PostgreSQL (added after Phase 3)
+
+The migrations were run for real, not only parsed: the ERP's migrations 001-026 plus website migrations 101-106 were loaded into an
+in-memory PostgreSQL (`tools/db-tests`, PGlite) with Supabase's roles, `auth.uid()` and storage imitated, and 85 behavioural
+checks were executed as an ERP super admin, an ordinary ERP user, a website editor, two customers and an anonymous visitor.
+**85 / 85 pass.** This is a rehearsal on a stand-in database, not the real Supabase project.
+
+Confirmed by execution:
+- ERP super admin is a website owner; an ordinary ERP user, an editor-less customer and anonymous visitors are not; deactivating the super admin in the ERP removes access immediately.
+- Unverified emails get no Customer ID; IDs are sequential, idempotent, separate from the auth UUID, and cannot be edited or deleted.
+- A customer sees 0 rows in 18 ERP tables (products, customers, suppliers, accounting, HR, governance...); anonymous visitors see nothing private.
+- Customer A cannot read, change, delete or create anything under customer B (addresses, orders).
+- Orders: pending confirmation, server-side totals, idempotency (replay and conflicting replay), COD only, no stock change on order, blocked while no ERP price source exists.
+- Staff conversion makes a DRAFT sales order; confirm reserves stock; dispatch deducts it and writes a `sales_out` movement; cancel releases it; ordinary (non-web) ERP orders are untouched; an order cannot be confirmed when stock has gone.
+- Draft/publish/rollback, owner-only publish, append-only audit log, storage bucket rules (customers cannot upload; editors and super admins can; the public can read).
+
+### Defects this found (all fixed in the migration files)
+1. **Customers could edit their own `erp_customer_id` and `email`.** Supabase gives the API roles broad table privileges by default and a column-level GRANT only adds to them. 105 now revokes first and then grants exactly what is needed.
+2. **The anonymous catalogue broke** once helper functions were locked down, because PostgreSQL checks EXECUTE on functions inside a view against the caller. `web_price_or_null` is now SECURITY DEFINER and explicitly executable.
+3. **Stock trigger could not call the locked-down reserve/deduct/release functions** when run by ERP staff. The trigger function is now SECURITY DEFINER.
+4. Internal helpers (`next_web_order_ref`, `web_current_price`) and `stock_reservations` writes are no longer reachable by API roles.
+
+### Still not covered
+Real Supabase Auth (email delivery, JWT handling), the PostgREST layer, performance, and concurrent requests. The rehearsal is single-connection.

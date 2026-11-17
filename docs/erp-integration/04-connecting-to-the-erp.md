@@ -7,7 +7,7 @@ connected to the ERP today. This is the exact order in which the connection shou
 
 | Area | How it connects | Built? |
 |---|---|---|
-| **ERP super admin = website owner** | Same Supabase login. `site_admin_role()` (migration 102) returns `owner` for an active ERP super admin by calling the ERP's own `is_super_admin()`. Deactivating the user in the ERP removes website-admin access immediately. | SQL + website code written; **untested** |
+| **ERP super admin = website owner** | Same Supabase login. `site_admin_role()` (migration 102) returns `owner` for an active ERP super admin by calling the ERP's own `is_super_admin()`. Deactivating the user in the ERP removes website-admin access immediately. | SQL **verified in a real PostgreSQL** (tools/db-tests); website sign-in code untested against Supabase |
 | Other website admins (editor / viewer) | Rows in `site_admins`, added by a database administrator. | SQL written |
 | Customers | Supabase Auth (same project) + `web_customers` with permanent `MBM-CUS-` IDs. They have no `user_profiles` row, so the ERP treats them as having no access. | Code + SQL written; **untested** |
 | Orders | Customer order -> `place_web_order()` -> ERP **inbox** (`web_orders`) as *Pending confirmation* -> ERP staff convert it to a **draft** sales order -> existing ERP approval workflow. | SQL written; **ERP "Web Orders" screen not built** |

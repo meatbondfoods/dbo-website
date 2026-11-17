@@ -12,6 +12,8 @@
 | `migrations/104_stock_reservation_PROPOSAL.sql` | Reserve / deduct / release for web orders. **Changes ERP inventory logic: needs explicit approval.** |
 | `migrations/105_rls_and_grants.sql` | RLS and grants, plus the verification checklist to run on dev. |
 | `migrations/106_storage_and_admin.sql` | Image storage bucket and its policies; website-admin bootstrap notes. |
+| `05-dev-project-setup.md` | How to create the dev Supabase project, load the ERP schema, apply 101-106, and the ERP migration typos found. |
+| `../../tools/db-tests` | Runs the ERP schema + 101-106 in an in-memory PostgreSQL and executes 85 behavioural checks. |
 | `03-security-and-rls-report.md` | Security controls, RLS matrix, test plan, known gaps. |
 | `checks/rls_isolation_checks.sql` | SQL to run on the DEV database to prove customers cannot see each other's data. |
 

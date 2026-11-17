@@ -7,17 +7,20 @@
 -- =====================================================================
 BEGIN;
 
--- Deny by default.
+-- Deny by default. IMPORTANT: Supabase grants anon/authenticated broad privileges on every new public table through
+-- default privileges, and a later column-level GRANT only ADDS to them. So we first REVOKE everything from the API
+-- roles and then grant exactly what each role needs. (Found by executing these migrations against PostgreSQL:
+-- without this, a customer could UPDATE their own erp_customer_id / email.)
 DO $$ DECLARE t TEXT; BEGIN
   FOREACH t IN ARRAY ARRAY['web_customers','web_customer_addresses','web_orders','web_order_items','web_order_events',
                            'web_order_counters','site_admins','site_content','site_content_versions','site_audit_log',
                            'web_categories','product_display']
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-    EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon', t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon, authenticated', t);
   END LOOP;
 END $$;
-REVOKE ALL ON public.web_order_counters FROM authenticated;       -- internal only
+-- web_order_counters stays with no API access at all (internal use by next_web_order_ref()).
 
 -- ---- Customers: own rows only -------------------------------------------------------------
 CREATE POLICY web_customers_own_select ON public.web_customers FOR SELECT TO authenticated USING (auth_user_id = (SELECT auth.uid()));
@@ -64,6 +67,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_display TO authenticated;
 -- The public never reads product_display directly: only the web_catalog view.
 
 GRANT SELECT ON public.web_catalog TO anon, authenticated;   -- safe columns only (see 102)
+
+-- ---- Internal helper functions are not callable through the API ---------------------------------------------
+-- (used only by SECURITY DEFINER functions, which run as the owner). web_price_or_null is the one exception: see below.
+REVOKE ALL ON FUNCTION public.next_web_order_ref() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.web_current_price(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.web_price_or_null(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.web_price_or_null(UUID) TO anon, authenticated;     -- needed by the public web_catalog view
 
 -- ---- Required verification before any customer can sign in (run on DEV) ---------------------
 -- 1. As a signed-in website customer (no user_profiles row), SELECT from: products, customers, sales_orders,
