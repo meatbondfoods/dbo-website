@@ -1,2 +1,23 @@
-@tailwind base; @tailwind components; @tailwind utilities;
-body { @apply bg-cream text-charcoal antialiased; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-cream font-sans text-charcoal antialiased; }
+  h1, h2, h3 { @apply font-serif text-forest; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-forest; outline-style: solid; }
+}
+
+@layer components {
+  .container-page { @apply mx-auto w-full max-w-page px-4 sm:px-6; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-forest text-cream hover:bg-forest-light; }
+  .btn-outline { @apply btn border border-forest text-forest hover:bg-forest-tint; }
+  .input { @apply w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm placeholder:text-charcoal/40; }
+  .label { @apply mb-1 block text-sm font-medium; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em] text-clay; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
