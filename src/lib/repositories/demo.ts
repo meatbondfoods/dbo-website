@@ -1,6 +1,7 @@
 import { DEMO_CATEGORIES, DEMO_PRODUCTS } from "../demo/data";
 import type { Order, OrderInput } from "../domain/types";
 import { priceLines } from "../pricing";
+import { formatOrderReference } from "../identity";
 import type { CatalogRepository, OrderRepository } from "./types";
 
 export class DemoCatalogRepository implements CatalogRepository {
@@ -22,8 +23,8 @@ export class DemoOrderRepository implements OrderRepository {
     const totals = priceLines(input.lines, DEMO_PRODUCTS);
     const order: Order = {
       id: crypto.randomUUID(),
-      reference: `MM-${new Date().getFullYear()}-${String(orders.length + 1).padStart(4, "0")}`,
-      status: "confirmed", createdAt: new Date().toISOString(), ...totals, input, idempotencyKey,
+      reference: formatOrderReference(new Date().getFullYear(), orders.length + 1),
+      status: "pending_confirmation", createdAt: new Date().toISOString(), ...totals, input, idempotencyKey,
     };
     orders.push(order);
     return order;

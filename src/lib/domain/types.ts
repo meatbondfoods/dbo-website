@@ -1,7 +1,8 @@
 // Storefront domain model. Deliberately independent of ERP table/column names:
 // the ERP adapter is responsible for mapping ERP records into these shapes.
-// Mirrors the ERP sales_order_status enum so the adapter needs no status translation.
-export type OrderStatus = "draft" | "confirmed" | "processing" | "ready" | "dispatched" | "delivered" | "cancelled";
+// New website orders are "pending_confirmation". After ERP staff convert one into a sales order, the status
+// mirrors the ERP sales_order_status (a draft ERP order still shows as pending_confirmation).
+export type OrderStatus = "pending_confirmation" | "confirmed" | "processing" | "ready" | "dispatched" | "delivered" | "rejected" | "cancelled";
 export type PaymentMethod = "cod" | "bkash" | "nagad" | "card";
 export type Availability = "in_stock" | "low_stock" | "out_of_stock";
 

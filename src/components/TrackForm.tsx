@@ -21,7 +21,7 @@ export function TrackForm({ initialReference = "", initialPhone = "" }: { initia
   return (
     <div>
       <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); lookup(String(f.get("ref")), String(f.get("phone"))); }} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <div><label htmlFor="ref" className="label">Order number</label><input id="ref" name="ref" required defaultValue={initialReference} placeholder="MM-2026-0001" className="input" /></div>
+        <div><label htmlFor="ref" className="label">Order number</label><input id="ref" name="ref" required defaultValue={initialReference} placeholder="MBM-ORD-2026-000001" className="input" /></div>
         <div><label htmlFor="tp" className="label">Mobile number</label><input id="tp" name="phone" required defaultValue={initialPhone} inputMode="tel" placeholder="01XXXXXXXXX" className="input" /></div>
         <button className="btn-primary" disabled={busy}>{busy ? "Searching…" : "Track order"}</button>
       </form>

@@ -9,15 +9,17 @@ export interface TrackedOrder {
   deliveryCharge: number; total: number; lines: CartLine[]; paymentMethod: string;
 }
 
+// Mirrors the ERP's sales-order progression. A new web order starts at "Order received"
+// (pending confirmation) and only advances when ERP staff confirm and process it.
 const STEPS = [
-  { key: "confirmed", label: "Order placed" }, { key: "processing", label: "Preparing" },
-  { key: "ready", label: "Packed" }, { key: "dispatched", label: "Out for delivery" }, { key: "delivered", label: "Delivered" },
+  { key: "pending_confirmation", label: "Order received" }, { key: "confirmed", label: "Confirmed" },
+  { key: "processing", label: "Preparing" }, { key: "ready", label: "Packed" },
+  { key: "dispatched", label: "Out for delivery" }, { key: "delivered", label: "Delivered" },
 ];
 
 export function OrderStatusView({ order }: { order: TrackedOrder }) {
   const { products } = useCatalog();
-  const cancelled = order.status === "cancelled";
-  // "draft" (awaiting staff confirmation in the ERP) shows as the first step.
+  const stopped = order.status === "cancelled" || order.status === "rejected";
   const idx = Math.max(0, STEPS.findIndex((s) => s.key === order.status));
 
   return (
@@ -26,8 +28,8 @@ export function OrderStatusView({ order }: { order: TrackedOrder }) {
         <h2 className="text-2xl">{order.reference}</h2>
         <p className="text-sm text-ink-soft">{new Date(order.createdAt).toLocaleString("en-GB")}</p>
       </div>
-      {cancelled ? <p className="mt-5 rounded-md bg-danger/5 p-3 text-sm text-danger">This order was cancelled.</p> : (
-        <ol className="mt-6 grid gap-3 sm:grid-cols-5" aria-label="Order progress">
+      {stopped ? <p role="status" className="mt-5 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm font-medium text-danger">{order.status === "rejected" ? "We could not accept this order. Please contact us for help." : "This order was cancelled."}</p> : (
+        <ol className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Order progress">
           {STEPS.map((s, n) => (
             <li key={s.key} className="flex items-center gap-2 sm:flex-col sm:items-start" aria-current={n === idx ? "step" : undefined}>
               <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs ${n <= idx ? "bg-brand text-white" : "border border-hairline text-ink-soft"}`}>{n <= idx ? <Check size={14} /> : n + 1}</span>

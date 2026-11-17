@@ -26,7 +26,7 @@ export default function OrderPage({ params }: { params: Promise<{ reference: str
       {state === "found" && order && (
         <>
           <div className="mb-8 flex items-start gap-3"><CheckCircle2 className="mt-1 text-brand" aria-hidden />
-            <div><h1 className="text-3xl">Thank you, your order is placed</h1><p className="mt-1 text-sm text-ink-soft">We&apos;ll confirm by phone before dispatch. Keep your order number to track delivery.</p></div></div>
+            <div><h1 className="text-3xl">We’ve received your order</h1><p className="mt-1 text-sm text-ink-soft">It is now pending confirmation by our team. We’ll confirm before dispatch. Keep your order number to track it.</p></div></div>
           <OrderStatusView order={order} />
           <div className="mt-8 flex gap-3"><Link href="/shop" className="btn-primary">Continue shopping</Link><Link href="/account" className="btn-outline">My orders</Link></div>
         </>
