@@ -12,3 +12,4 @@ dev.log
 start.log
 *.log
 .data
+public/uploads

@@ -4,12 +4,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import type { Category } from "@/lib/domain/types";
+import type { ContentMap } from "@/lib/content/schema";
 import { Wordmark } from "./Wordmark";
 import { SearchBar } from "./SearchBar";
 import { useCart, useHydrated } from "@/store/cart";
 import { useUI } from "@/store/ui";
 
-export function Header({ categories, announcement }: { categories: Category[]; announcement: string }) {
+export function Header({ categories, announcement, nav, logo }: { categories: Category[]; announcement: string; nav: ContentMap["navigation"]; logo: ContentMap["brand"] }) {
   const pathname = usePathname();
   const hydrated = useHydrated();
   const count = useCart((s) => s.lines.reduce((n, l) => n + l.quantity, 0));
@@ -43,11 +44,10 @@ export function Header({ categories, announcement }: { categories: Category[]; a
     <header className="sticky top-0 z-40 border-b border-hairline bg-white">
       {announcement && <div className="on-dark bg-deep py-2 text-center text-xs font-medium text-white">{announcement}</div>}
       <div className="container-page flex h-[72px] items-center gap-6">
-        <Wordmark />
+        <Wordmark logo={{ path: logo.logoPath, alt: logo.logoAlt }} />
         <nav aria-label="Main" className="ml-4 hidden items-center gap-7 lg:flex">
-          {link("/", "Home")}
-          {link("/shop", "Shop")}
-          <div ref={catsRef} className="relative">
+          {nav.items.slice(0, 2).map((i) => <span key={i.href + i.label} className="contents">{link(i.href, i.label)}</span>)}
+          {nav.showCategories && <div ref={catsRef} className="relative">
             <button aria-expanded={cats} aria-haspopup="true" onClick={() => setCats(!cats)}
               className="inline-flex items-center gap-1 py-2 text-sm font-semibold text-ink hover:text-brand">
               Categories <ChevronDown size={15} aria-hidden className={`transition-transform ${cats ? "rotate-180" : ""}`} />
@@ -59,9 +59,8 @@ export function Header({ categories, announcement }: { categories: Category[]; a
                 ))}
               </ul>
             )}
-          </div>
-          {link("/about", "About Us")}
-          {link("/contact", "Contact")}
+          </div>}
+          {nav.items.slice(2).map((i) => <span key={i.href + i.label} className="contents">{link(i.href, i.label)}</span>)}
         </nav>
         <div className="ml-auto hidden w-72 xl:block"><SearchBar /></div>
         <div className="ml-auto flex items-center gap-1 xl:ml-0">
@@ -80,11 +79,11 @@ export function Header({ categories, announcement }: { categories: Category[]; a
       {menu && (
         <nav aria-label="Mobile" className="max-h-[calc(100vh-110px)] overflow-y-auto border-t border-hairline bg-white lg:hidden">
           <div className="container-page flex flex-col py-3">
-            {[["/", "Home"], ["/shop", "Shop all products"]].map(([h, l]) => <Link key={h} href={h} className="rounded-lg px-2 py-3 text-base font-semibold hover:bg-mint-light">{l}</Link>)}
-            <p className="px-2 pb-1 pt-3 text-xs font-bold uppercase tracking-[0.14em] text-ink-soft">Categories</p>
-            {categories.map((c) => <Link key={c.id} href={`/shop?category=${c.slug}`} className="rounded-lg px-4 py-2.5 text-base hover:bg-mint-light">{c.name}</Link>)}
+            {nav.items.map((i) => <Link key={i.href + i.label} href={i.href} className="rounded-lg px-2 py-3 text-base font-semibold hover:bg-mint-light">{i.label}</Link>)}
+            {nav.showCategories && <><p className="px-2 pb-1 pt-3 text-xs font-bold uppercase tracking-[0.14em] text-ink-soft">Categories</p>
+            {categories.map((c) => <Link key={c.id} href={`/shop?category=${c.slug}`} className="rounded-lg px-4 py-2.5 text-base hover:bg-mint-light">{c.name}</Link>)}</>}
             <div className="mt-2 border-t border-hairline pt-2">
-              {[["/about", "About Us"], ["/contact", "Contact"], ["/track", "Track an order"]].map(([h, l]) => <Link key={h} href={h} className="block rounded-lg px-2 py-3 text-base font-semibold hover:bg-mint-light">{l}</Link>)}
+              <Link href="/track" className="block rounded-lg px-2 py-3 text-base font-semibold hover:bg-mint-light">Track an order</Link>
             </div>
           </div>
         </nav>

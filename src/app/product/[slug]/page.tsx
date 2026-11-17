@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight, Snowflake, Truck, Wallet } from "lucide-react";
 import { getRepositories } from "@/lib/repositories";
 import { getStorefront, pageContent } from "@/lib/content/server";
-import { deliverySummary } from "@/lib/pricing";
+import { deliveryNote } from "@/lib/pricing";
 import { ProductGrid } from "@/components/ProductGrid";
 import { Stars } from "@/components/Stars";
 import { Availability } from "@/components/Availability";
@@ -44,7 +44,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <p className="mt-5 text-base text-ink-soft">{product.description}</p>
           <Purchase product={product} />
           <ul className="mt-8 grid gap-3 border-t border-hairline pt-6 text-sm">
-            {[[Snowflake, "Packed and dispatched chilled"], [Truck, deliverySummary(commerce)], [Wallet, "Cash on delivery available"]].map(([I, t]) => {
+            {[[Snowflake, "Packed and dispatched chilled"], [Truck, commerce.active ? deliveryNote(commerce) : "Delivery charge confirmed by our team"], [Wallet, "Cash on delivery available"]].map(([I, t]) => {
               const Icon = I as typeof Snowflake; return <li key={t as string} className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-mint-light text-brand"><Icon size={18} aria-hidden /></span>{t as string}</li>;
             })}
           </ul>

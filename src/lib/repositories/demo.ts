@@ -18,7 +18,7 @@ const orders: Order[] = (g.__martDemoOrders ??= []);
 const sameNumber = (a: string, b: string) => { const x = normalizeBdPhone(a), y = normalizeBdPhone(b); return !!x && x === y; };
 
 export class DemoOrderRepository implements OrderRepository {
-  async createOrder(input: OrderInput, idempotencyKey: string): Promise<Order> {
+  async createOrder(input: OrderInput, idempotencyKey: string, customerId?: string): Promise<Order> {
     const existing = orders.find((o) => o.idempotencyKey === idempotencyKey);
     if (existing) return existing; // duplicate submission returns the original order
     const { subtotal } = priceLines(input.lines, DEMO_PRODUCTS);
@@ -30,6 +30,8 @@ export class DemoOrderRepository implements OrderRepository {
       reference: formatOrderReference(new Date().getFullYear(), orders.length + 1),
       status: "pending_confirmation", createdAt: new Date().toISOString(),
       subtotal, deliveryCharge: charge, total: subtotal + charge, input, idempotencyKey,
+      // Payment is never marked paid by the website. Cash on delivery stays "unpaid" until the ERP records payment.
+      paymentStatus: "unpaid", deliveryStatus: cfg.active ? "calculated" : "to_be_confirmed", customerId,
     };
     orders.push(order);
     return order;
@@ -38,6 +40,7 @@ export class DemoOrderRepository implements OrderRepository {
     return orders.find((o) => o.reference === reference && sameNumber(o.input.customer.phone, phone)) ?? null;
   }
   async listOrdersForPhone(phone: string) { return orders.filter((o) => sameNumber(o.input.customer.phone, phone)); }
+  async listForCustomer(customerId: string) { return orders.filter((o) => o.customerId === customerId).reverse(); }
   async listAll() { return [...orders].reverse(); }
 }
 

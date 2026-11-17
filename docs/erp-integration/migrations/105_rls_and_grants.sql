@@ -24,7 +24,7 @@ CREATE POLICY web_customers_own_select ON public.web_customers FOR SELECT TO aut
 CREATE POLICY web_customers_own_update ON public.web_customers FOR UPDATE TO authenticated
   USING (auth_user_id = (SELECT auth.uid())) WITH CHECK (auth_user_id = (SELECT auth.uid()));
 GRANT SELECT ON public.web_customers TO authenticated;
-GRANT UPDATE (full_name, email) ON public.web_customers TO authenticated;   -- column-level: code/phone/ERP link are not editable
+GRANT UPDATE (full_name, phone) ON public.web_customers TO authenticated;   -- column-level: code, email, auth id, verification and ERP link are NOT editable
 
 CREATE POLICY web_addresses_own ON public.web_customer_addresses FOR ALL TO authenticated
   USING (web_customer_id IN (SELECT id FROM public.web_customers WHERE auth_user_id = (SELECT auth.uid())))

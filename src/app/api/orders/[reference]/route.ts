@@ -1,6 +1,7 @@
 import { getRepositories } from "@/lib/repositories";
 import { apiError, clientIp, json, rateLimited } from "@/lib/http";
 import { lookupSchema } from "@/lib/validation";
+import { toTracked } from "@/lib/orderView";
 
 // Order tracking requires the reference AND the phone used at checkout, so references can't be enumerated.
 export async function GET(req: Request, { params }: { params: Promise<{ reference: string }> }) {
@@ -11,9 +12,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ referenc
 
   const order = await getRepositories().orders.getOrderByReference(reference, phone.data.phone);
   if (!order) return apiError("Order not found", 404);
-  return json({
-    reference: order.reference, status: order.status, createdAt: order.createdAt,
-    subtotal: order.subtotal, deliveryCharge: order.deliveryCharge, total: order.total,
-    lines: order.input.lines, paymentMethod: order.input.paymentMethod,
-  });
+  return json(toTracked(order));
 }

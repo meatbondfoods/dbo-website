@@ -1,75 +1,49 @@
-"use client";
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getLocalOrders, type LocalOrder } from "@/lib/localOrders";
-import { OrderStatusView, type TrackedOrder } from "@/components/OrderStatusView";
+import { MapPin, Package, UserRound } from "lucide-react";
+import { requireUser } from "@/lib/auth/page";
+import { listAddresses } from "@/lib/auth/service";
+import { getRepositories } from "@/lib/repositories";
+import { taka } from "@/lib/format";
+import { StatusBadge } from "@/components/StatusBadge";
 
-interface Profile { name: string; phone: string; email: string }
-const KEY = "mart-profile";
+export const metadata = { title: "My account" };
+export const dynamic = "force-dynamic";
 
-// DEMO ACCOUNT: the profile lives only in this browser's localStorage. Real registration/login
-// (Supabase Auth, phone OTP) is blocked on the auth decision noted in the integration audit.
-export default function AccountPage() {
-  const [ready, setReady] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [mode, setMode] = useState<"register" | "login">("register");
-  const [orders, setOrders] = useState<TrackedOrder[]>([]);
-  const [local, setLocal] = useState<LocalOrder[]>([]);
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    try { setProfile(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { /* ignore */ }
-    const l = getLocalOrders(); setLocal(l); setReady(true);
-    Promise.all(l.map((o) => fetch(`/api/orders/${o.reference}?phone=${encodeURIComponent(o.phone)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
-      .then((res) => setOrders(res.filter(Boolean)));
-  }, []);
-
-  function save(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); const f = new FormData(e.currentTarget);
-    if (mode === "login") {
-      const saved: Profile | null = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? "null"); } catch { return null; } })();
-      if (!saved || saved.phone !== String(f.get("phone"))) { setMsg("No account found on this device for that number. Register instead."); return; }
-      setProfile(saved); setMsg(""); return;
-    }
-    const p = { name: String(f.get("name")), phone: String(f.get("phone")), email: String(f.get("email") ?? "") };
-    try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* ignore */ }
-    setProfile(p); setMsg("");
-  }
-
-  if (!ready) return <div className="container-page py-16 text-sm text-ink-soft" role="status">Loading…</div>;
-
-  if (!profile)
-    return (
-      <div className="container-page max-w-md py-12">
-        <h1 className="text-4xl">{mode === "register" ? "Create account" : "Log in"}</h1>
-        <p className="mt-2 text-sm text-ink-soft">Demo account stored on this device only. <Link href="/track" className="underline">Track an order without an account</Link>.</p>
-        <form onSubmit={save} className="mt-8 space-y-4">
-          {mode === "register" && <div><label className="label" htmlFor="n">Full name</label><input id="n" name="name" required className="input" autoComplete="name" /></div>}
-          <div><label className="label" htmlFor="p">Mobile number</label><input id="p" name="phone" required inputMode="tel" className="input" autoComplete="tel" placeholder="01XXXXXXXXX" /></div>
-          {mode === "register" && <div><label className="label" htmlFor="e">Email (optional)</label><input id="e" name="email" type="email" className="input" autoComplete="email" /></div>}
-          {msg && <p role="alert" className="text-sm text-danger">{msg}</p>}
-          <button className="btn-primary w-full">{mode === "register" ? "Create account" : "Log in"}</button>
-        </form>
-        <button onClick={() => { setMode(mode === "register" ? "login" : "register"); setMsg(""); }} className="mt-4 text-sm text-brand underline">
-          {mode === "register" ? "Already have an account? Log in" : "New here? Create an account"}
-        </button>
-      </div>
-    );
-
+export default async function AccountHome() {
+  const user = await requireUser("/account");
+  const [addresses, orders] = await Promise.all([listAddresses(user), getRepositories().orders.listForCustomer(user.customerId)]);
+  const def = addresses.find((a) => a.isDefault) ?? addresses[0];
   return (
-    <div className="container-page max-w-3xl py-12">
-      <div className="flex items-start justify-between gap-4">
-        <div><h1 className="text-4xl">Hello, {profile.name.split(" ")[0]}</h1><p className="mt-1 text-sm text-ink-soft">{profile.phone}{profile.email && ` · ${profile.email}`}</p></div>
-        <button onClick={() => { try { localStorage.removeItem(KEY); } catch { /* ignore */ } setProfile(null); }} className="btn-outline">Log out</button>
+    <div>
+      <h1 className="text-3xl sm:text-4xl">Welcome, {user.fullName.split(" ")[0]}</h1>
+      <div className="mt-6 grid gap-5 md:grid-cols-3">
+        <section className="card p-5" aria-labelledby="pid"><div className="flex items-center gap-2 text-leaf"><UserRound size={18} aria-hidden /><h2 id="pid" className="text-base">Your profile</h2></div>
+          <dl className="mt-3 space-y-2 text-sm">
+            <div><dt className="text-ink-soft">Customer ID</dt><dd className="font-mono text-base font-bold text-deep" data-testid="customer-id">{user.customerCode}</dd></div>
+            <div><dt className="text-ink-soft">Email</dt><dd className="break-all font-medium">{user.email}</dd></div>
+            {user.phone && <div><dt className="text-ink-soft">Mobile</dt><dd className="font-medium">{user.phone}</dd></div>}
+          </dl><Link href="/account/profile" className="mt-4 inline-block text-sm font-semibold text-brand underline">Edit profile</Link></section>
+        <section className="card p-5" aria-labelledby="pad"><div className="flex items-center gap-2 text-leaf"><MapPin size={18} aria-hidden /><h2 id="pad" className="text-base">Delivery address</h2></div>
+          {def ? <p className="mt-3 text-sm">{def.fullName}<br />{def.line1}<br />{def.area}, {def.city}{def.postalCode && ` ${def.postalCode}`}<br />{def.phone}</p> : <p className="mt-3 text-sm text-ink-soft">No saved address yet.</p>}
+          <Link href="/account/addresses" className="mt-4 inline-block text-sm font-semibold text-brand underline">{addresses.length ? `Manage ${addresses.length} address${addresses.length === 1 ? "" : "es"}` : "Add an address"}</Link></section>
+        <section className="card p-5" aria-labelledby="por"><div className="flex items-center gap-2 text-leaf"><Package size={18} aria-hidden /><h2 id="por" className="text-base">Orders</h2></div>
+          <p className="mt-3 text-3xl font-extrabold text-deep">{orders.length}</p><p className="text-sm text-ink-soft">order{orders.length === 1 ? "" : "s"} placed</p>
+          <Link href="/account/orders" className="mt-4 inline-block text-sm font-semibold text-brand underline">View order history</Link></section>
       </div>
-      <h2 className="mb-4 mt-10 text-2xl">Order history</h2>
-      {orders.length === 0 ? (
-        <div className="rounded-md border border-dashed border-hairline bg-white p-10 text-center">
-          <p className="text-xl">{local.length ? "Loading your orders…" : "No orders yet"}</p>
-          <p className="mt-2 text-sm text-ink-soft">Orders you place on this device will appear here with live status.</p>
-          <Link href="/shop" className="btn-primary mt-5">Start shopping</Link>
-        </div>
-      ) : <div className="space-y-6">{orders.map((o) => <OrderStatusView key={o.reference} order={o} />)}</div>}
+
+      <section className="card mt-6 p-5" aria-labelledby="rec">
+        <div className="flex items-center justify-between"><h2 id="rec" className="text-lg">Recent orders</h2><Link href="/account/orders" className="text-sm font-semibold text-brand hover:underline">View all</Link></div>
+        {orders.length === 0 ? (
+          <div className="mt-4 rounded-lg border border-dashed border-ink-soft/40 p-8 text-center"><p className="font-bold text-deep">No orders yet</p><p className="mt-1 text-sm text-ink-soft">Orders you place while signed in appear here with live status.</p><Link href="/shop" className="btn-primary mt-4">Start shopping</Link></div>
+        ) : (
+          <ul className="mt-3 divide-y divide-hairline">
+            {orders.slice(0, 3).map((o) => (
+              <li key={o.id}><Link href={`/account/orders/${o.reference}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-mint-light/60">
+                <span><span className="font-semibold text-deep">{o.reference}</span><span className="block text-xs text-ink-soft">{new Date(o.createdAt).toLocaleDateString("en-GB")} · {taka(o.total)}</span></span><StatusBadge status={o.status} /></Link></li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS public.web_orders (
   idempotency_key   TEXT NOT NULL CHECK (length(idempotency_key) BETWEEN 16 AND 100),
   request_hash      TEXT NOT NULL,                       -- detects key reuse with a different payload
   status            TEXT NOT NULL DEFAULT 'pending_confirmation'
-                    CHECK (status IN ('pending_confirmation', 'accepted', 'rejected', 'cancelled_by_customer')),
+                    CHECK (status IN ('pending_confirmation', 'accepted', 'on_hold', 'rejected', 'cancelled_by_customer')),
+  -- NOTE: the ERP sales_order_status enum has no 'on_hold'. "On hold" therefore lives on the inbox record and is set by
+  -- ERP staff before conversion. Mapping to real ERP statuses is finalised in the ERP integration phase.
   payment_method    TEXT NOT NULL CHECK (payment_method IN ('cod', 'bkash', 'nagad', 'card')),
   payment_status    TEXT NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'paid', 'failed', 'refunded')),
   delivery_name     TEXT NOT NULL,
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS public.web_orders (
   delivery_notes    TEXT,
   subtotal          NUMERIC(14,2) NOT NULL CHECK (subtotal >= 0),
   delivery_charge   NUMERIC(14,2) NOT NULL CHECK (delivery_charge >= 0),
+  delivery_status   TEXT NOT NULL DEFAULT 'to_be_confirmed' CHECK (delivery_status IN ('calculated', 'to_be_confirmed')),
   total             NUMERIC(14,2) NOT NULL CHECK (total >= 0),
   erp_sales_order_id UUID UNIQUE REFERENCES public.sales_orders(id),   -- set on conversion
   rejection_reason  TEXT,
@@ -104,7 +107,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth AS $$
 DECLARE
   v_cust public.web_customers; v_hash TEXT; v_existing public.web_orders; v_order UUID; v_ref TEXT;
   v_line JSONB; v_qty NUMERIC; v_price NUMERIC; v_avail NUMERIC; v_prod public.products;
-  v_sub NUMERIC := 0; v_charge NUMERIC; v_free NUMERIC; v_fee NUMERIC;
+  v_sub NUMERIC := 0; v_charge NUMERIC; v_free NUMERIC; v_fee NUMERIC; v_active BOOLEAN;
 BEGIN
   SELECT * INTO v_cust FROM web_customers WHERE auth_user_id = auth.uid();
   IF NOT FOUND THEN RAISE EXCEPTION 'Sign in with a verified website customer account to order.'; END IF;
@@ -127,7 +130,7 @@ BEGIN
       delivery_name, delivery_phone, delivery_line1, delivery_area, delivery_city, delivery_notes,
       subtotal, delivery_charge, total)
   VALUES (v_ref, v_cust.id, p_idempotency_key, v_hash, p_payment_method,
-      v_cust.full_name, v_cust.phone_e164, p_delivery ->> 'line1', p_delivery ->> 'area', COALESCE(p_delivery ->> 'city', 'Dhaka'), p_delivery ->> 'notes',
+      COALESCE(NULLIF(p_delivery ->> 'full_name', ''), v_cust.full_name), COALESCE(normalize_bd_phone(p_delivery ->> 'phone'), v_cust.phone), p_delivery ->> 'line1', p_delivery ->> 'area', COALESCE(p_delivery ->> 'city', 'Dhaka'), p_delivery ->> 'notes',
       0, 0, 0)
   RETURNING id INTO v_order;
 
@@ -145,12 +148,20 @@ BEGIN
     v_sub := v_sub + round(v_qty * v_price, 2);
   END LOOP;
 
-  -- Delivery rule comes from published site settings (admin-managed, not a price).
-  SELECT COALESCE((data ->> 'free_delivery_threshold')::NUMERIC, 1500), COALESCE((data ->> 'delivery_charge')::NUMERIC, 80)
-    INTO v_free, v_fee FROM site_content WHERE key = 'commerce' AND status = 'published';
-  v_charge := CASE WHEN v_sub >= COALESCE(v_free, 1500) THEN 0 ELSE COALESCE(v_fee, 80) END;
+  -- Delivery policy is NOT approved. Unless an owner has published commerce.active = true, NO charge is applied and the
+  -- order is marked delivery_status = 'to_be_confirmed' (the team confirms it). No default fee or radius is assumed.
+  SELECT (data ->> 'active')::BOOLEAN, (data ->> 'chargeBeyond')::NUMERIC, (data ->> 'freeOverAmount')::NUMERIC
+    INTO v_active, v_fee, v_free FROM site_content WHERE key = 'commerce' AND status = 'published';
+  IF COALESCE(v_active, FALSE) THEN
+    v_charge := CASE WHEN COALESCE(v_free, 0) > 0 AND v_sub >= v_free THEN 0 ELSE COALESCE(v_fee, 0) END;
+    -- (distance-based free radius is evaluated against the chosen area once the policy is approved and the area list exists)
+  ELSE
+    v_charge := 0;
+  END IF;
 
-  UPDATE web_orders SET subtotal = v_sub, delivery_charge = v_charge, total = v_sub + v_charge WHERE id = v_order;
+  UPDATE web_orders SET subtotal = v_sub, delivery_charge = v_charge, total = v_sub + v_charge,
+         delivery_status = CASE WHEN COALESCE(v_active, FALSE) THEN 'calculated' ELSE 'to_be_confirmed' END
+   WHERE id = v_order;
   INSERT INTO web_order_events (web_order_id, event_type, customer_note, actor_type, actor_id)
   VALUES (v_order, 'submitted', 'Order received. Awaiting confirmation.', 'customer', auth.uid());
 
@@ -162,16 +173,17 @@ GRANT EXECUTE ON FUNCTION public.place_web_order(TEXT, JSONB, TEXT, JSONB) TO au
 
 -- Customer tracking: own orders only, limited columns, status mirrored from the ERP once converted.
 CREATE OR REPLACE FUNCTION public.get_my_web_orders()
-RETURNS TABLE (order_ref TEXT, display_status TEXT, submitted_at TIMESTAMPTZ, subtotal NUMERIC, delivery_charge NUMERIC, total NUMERIC, payment_method TEXT, payment_status TEXT, items JSONB, timeline JSONB)
+RETURNS TABLE (order_ref TEXT, display_status TEXT, submitted_at TIMESTAMPTZ, subtotal NUMERIC, delivery_charge NUMERIC, delivery_status TEXT, total NUMERIC, payment_method TEXT, payment_status TEXT, items JSONB, timeline JSONB)
 LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, auth AS $$
   SELECT o.order_ref,
          CASE o.status
            WHEN 'pending_confirmation' THEN 'pending_confirmation'
+           WHEN 'on_hold' THEN 'on_hold'
            WHEN 'rejected' THEN 'rejected'
            WHEN 'cancelled_by_customer' THEN 'cancelled'
            ELSE CASE WHEN so.status::TEXT = 'draft' THEN 'pending_confirmation' ELSE COALESCE(so.status::TEXT, 'pending_confirmation') END
          END,
-         o.submitted_at, o.subtotal, o.delivery_charge, o.total, o.payment_method, o.payment_status,
+         o.submitted_at, o.subtotal, o.delivery_charge, o.delivery_status, o.total, o.payment_method, o.payment_status,
          (SELECT jsonb_agg(jsonb_build_object('product_id', i.product_id, 'name', i.product_name, 'unit', i.unit, 'quantity', i.quantity, 'unit_price', i.unit_price, 'line_total', i.line_total)) FROM web_order_items i WHERE i.web_order_id = o.id),
          (SELECT jsonb_agg(jsonb_build_object('type', e.event_type, 'note', e.customer_note, 'at', e.created_at) ORDER BY e.created_at) FROM web_order_events e WHERE e.web_order_id = o.id)
   FROM web_orders o
@@ -195,11 +207,11 @@ BEGIN
   PERFORM public.require_permission('sales', 'create');
   SELECT * INTO v_o FROM web_orders WHERE id = p_web_order FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Web order not found.'; END IF;
-  IF v_o.status <> 'pending_confirmation' THEN RAISE EXCEPTION 'Order is already %.', v_o.status; END IF;
+  IF v_o.status NOT IN ('pending_confirmation', 'on_hold') THEN RAISE EXCEPTION 'Order is already %.', v_o.status; END IF;
   SELECT * INTO v_c FROM web_customers WHERE id = v_o.web_customer_id;
 
   v_cust := COALESCE(p_erp_customer, v_c.erp_customer_id);
-  IF v_cust IS NULL THEN RAISE EXCEPTION 'Link or create the ERP customer first (phone %).', v_c.phone_e164; END IF;
+  IF v_cust IS NULL THEN RAISE EXCEPTION 'Link or create the ERP customer first (website customer %, email %).', v_c.customer_code, v_c.email; END IF;
   IF p_erp_customer IS NOT NULL AND v_c.erp_customer_id IS DISTINCT FROM p_erp_customer THEN
     UPDATE web_customers SET erp_customer_id = p_erp_customer, erp_match_status = 'linked_by_staff' WHERE id = v_c.id;
   END IF;

@@ -1,10 +1,10 @@
 import { draftMode } from "next/headers";
-import { adminGuard } from "@/lib/adminGuard";
+import { requireAdminApi } from "@/lib/adminAuth";
 import { apiError, json } from "@/lib/http";
 
 // Turns Next.js draft mode on/off so the admin can see unpublished DRAFT content on the real site.
 export async function POST(req: Request) {
-  const blocked = adminGuard(req); if (blocked) return blocked;
+  const g = await requireAdminApi(req, "editor"); if ("res" in g) return g.res;
   const body = await req.json().catch(() => null) as { enable?: boolean } | null;
   if (typeof body?.enable !== "boolean") return apiError("enable (boolean) is required", 400);
   const dm = await draftMode();

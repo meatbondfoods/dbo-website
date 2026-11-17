@@ -1,5 +1,6 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, useHydrated } from "@/store/cart";
 import { useCatalog } from "@/lib/useCatalog";
@@ -25,6 +26,14 @@ export default function CheckoutPage() {
   const { products } = useCatalog();
   const commerce = useCommerce();
   const [area, setArea] = useState("");
+  const [me, setMe] = useState<{ fullName: string; phone: string; email: string } | null>(null);
+  const [saved, setSaved] = useState<{ id: string; fullName: string; phone: string; line1: string; area: string; city: string; instructions: string }[]>([]);
+  const [pre, setPre] = useState<{ n: number; fullName?: string; phone?: string; line1?: string; city?: string; notes?: string }>({ n: 0 });
+  // Signed-in customers get their details and saved addresses (401 = guest, which is fine).
+  useEffect(() => {
+    fetch("/api/account/profile").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.profile) { setMe(d.profile); setPre((p) => ({ n: p.n + 1, fullName: d.profile.fullName, phone: d.profile.phone })); } });
+    fetch("/api/account/addresses").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.addresses) setSaved(d.addresses); });
+  }, []);
   const [pay, setPay] = useState<PaymentMethod>("cod");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -84,17 +93,23 @@ export default function CheckoutPage() {
       <h1 className="text-3xl sm:text-4xl">Checkout</h1>
       <form onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_400px]" noValidate>
         <div className="space-y-6">
-          <fieldset className={sec}><legend className="mb-1 text-lg font-bold text-deep">1. Your details</legend>
-            <TextInput label="Full name" name="name" required autoComplete="name" error={fe.name?.[0] && "Please enter your full name"} />
+          <fieldset key={pre.n} className={sec}><legend className="mb-1 text-lg font-bold text-deep">1. Your details</legend>
+            {me ? <p className="text-sm text-ink-soft">Signed in as <strong>{me.email}</strong>. This order will appear in your order history.</p> : <p className="text-sm text-ink-soft">Checking out as a guest. <Link href="/login?next=/checkout" className="font-semibold text-brand underline">Sign in</Link> to use saved details and track orders in your account.</p>}
+            <TextInput label="Full name" name="name" required autoComplete="name" defaultValue={pre.fullName} error={fe.name?.[0] && "Please enter your full name"} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextInput label="Mobile number" name="phone" required inputMode="tel" autoComplete="tel" placeholder="01XXXXXXXXX" hint="We call to confirm your order." error={fe.phone?.[0] && "Enter a valid Bangladesh mobile number"} />
-              <TextInput label="Email (optional)" name="email" type="email" autoComplete="email" />
+              <TextInput label="Mobile number" name="phone" required inputMode="tel" autoComplete="tel" placeholder="01XXXXXXXXX" defaultValue={pre.phone} hint="We call to confirm your order." error={fe.phone?.[0] && "Enter a valid Bangladesh mobile number"} />
+              <TextInput label="Email (optional)" name="email" type="email" autoComplete="email" defaultValue={me?.email} />
             </div>
           </fieldset>
-          <fieldset className={sec}><legend className="mb-1 text-lg font-bold text-deep">2. Delivery address</legend>
-            <TextInput label="Address" name="line1" required autoComplete="street-address" placeholder="House, road, block" error={fe.line1?.[0] && "Please enter your street address"} />
-            <div className="grid gap-4 sm:grid-cols-2"><Field label="Area" hint={`Free delivery within ${commerce.freeRadiusKm} km`}>{({ id, describedBy }) => (<select id={id} aria-describedby={describedBy} required value={area} onChange={(e) => setArea(e.target.value)} className="input"><option value="">Choose your area</option>{commerce.areas.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}<option value="Other area">Other area</option></select>)}</Field><TextInput label="City" name="city" required defaultValue="Dhaka" /></div>
-            <TextArea label="Delivery notes (optional)" name="notes" rows={2} />
+          <fieldset key={`a${pre.n}`} className={sec}><legend className="mb-1 text-lg font-bold text-deep">2. Delivery address</legend>
+            {saved.length > 0 && <Field label="Use a saved address">{({ id }) => (<select id={id} className="input" defaultValue="" onChange={(e) => { const s = saved.find((x) => x.id === e.target.value); if (s) { setArea(s.area); setPre((p) => ({ n: p.n + 1, fullName: s.fullName, phone: s.phone, line1: s.line1, city: s.city, notes: s.instructions })); } }}><option value="">Choose a saved address</option>{saved.map((s) => <option key={s.id} value={s.id}>{s.fullName}, {s.line1}, {s.area}</option>)}</select>)}</Field>}
+            <TextInput label="Address" name="line1" required autoComplete="street-address" placeholder="House, road, block" defaultValue={pre.line1} error={fe.line1?.[0] && "Please enter your street address"} />
+            <div className="grid gap-4 sm:grid-cols-2">{commerce.active && commerce.areas.length > 0 ? (
+              <Field label="Area" hint="Choose your delivery area">{({ id, describedBy }) => (<select id={id} aria-describedby={describedBy} required value={area} onChange={(e) => setArea(e.target.value)} className="input"><option value="">Choose your area</option>{commerce.areas.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}<option value="Other area">Other area</option></select>)}</Field>
+            ) : (
+              <TextInput label="Area" name="areaText" required value={area} onChange={(e) => setArea(e.target.value)} />
+            )}<TextInput label="City" name="city" required defaultValue={pre.city ?? "Dhaka"} /></div>
+            <TextArea label="Delivery notes (optional)" name="notes" rows={2} defaultValue={pre.notes} />
           </fieldset>
           <fieldset className={sec}><legend className="mb-1 text-lg font-bold text-deep">3. Payment method</legend>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -116,12 +131,12 @@ export default function CheckoutPage() {
           </ul>
           <dl className="mt-5 space-y-2.5 border-t border-hairline pt-5 text-sm">
             <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{taka(totals.subtotal)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{!area ? "Choose your area" : totals.deliveryCharge === 0 ? "Free" : taka(totals.deliveryCharge)}</dd></div>
-            <div className="flex justify-between border-t border-hairline pt-3 text-lg font-bold text-deep"><dt>Total</dt><dd>{taka(totals.total)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{!commerce.active ? "To be confirmed" : !area ? "Choose your area" : totals.deliveryCharge === 0 ? "Free" : taka(totals.deliveryCharge)}</dd></div>
+            <div className="flex justify-between border-t border-hairline pt-3 text-lg font-bold text-deep"><dt>{commerce.active ? "Total" : "Total (excluding delivery)"}</dt><dd>{taka(totals.total)}</dd></div>
           </dl>
           {error && <p role="alert" className="mt-5 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm font-medium text-danger">{error}</p>}
           <Button className="mt-6 w-full" disabled={busy}>{busy ? "Placing order…" : `Place order · ${taka(totals.total)}`}</Button>
-          <p className="mt-3 text-center text-xs text-ink-soft">Prices are re-checked by our server when you place the order.</p>
+          <p className="mt-3 text-center text-xs text-ink-soft">Prices are re-checked by our server when you place the order.{!commerce.active && " Our team will confirm your delivery charge when confirming your order."}</p>
         </aside>
       </form>
     </div>

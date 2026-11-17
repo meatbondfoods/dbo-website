@@ -17,3 +17,10 @@ export function rateLimited(key: string, limit: number, windowMs: number): boole
   return h.n > limit;
 }
 export const clientIp = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+
+/** CSRF defence for cookie-authenticated mutations: refuse requests that originate from another site. */
+export function sameOrigin(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  if (origin) { try { return new URL(origin).host === req.headers.get("host"); } catch { return false; } }
+  return req.headers.get("sec-fetch-site") !== "cross-site";
+}

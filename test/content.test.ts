@@ -4,9 +4,9 @@ import { checkTheme, contrast } from "../src/lib/content/contrast.ts";
 import { SCHEMAS, CONTENT_KEYS } from "../src/lib/content/schema.ts";
 import { DEFAULTS } from "../src/lib/content/defaults.ts";
 import { applyDisplay } from "../src/lib/content/display.ts";
-import { areaDistance, deliveryCharge, deliverySummary } from "../src/lib/pricing.ts";
+import { areaDistance, deliveryCharge, deliveryNote, deliverySummary } from "../src/lib/pricing.ts";
 
-const cfg = { freeRadiusKm: 7, chargeBeyond: 80, freeOverAmount: 1500, areas: [{ name: "Gulshan", distanceKm: 4 }, { name: "Uttara", distanceKm: 12 }, { name: "Edge", distanceKm: 7 }] };
+const cfg = { active: true, freeRadiusKm: 7, chargeBeyond: 80, freeOverAmount: 1500, areas: [{ name: "Gulshan", distanceKm: 4 }, { name: "Uttara", distanceKm: 12 }, { name: "Edge", distanceKm: 7 }] };
 
 test("every built-in default validates against its schema", () => {
   for (const k of CONTENT_KEYS) assert.equal(SCHEMAS[k].safeParse(DEFAULTS[k]).success, true, k);
@@ -29,6 +29,10 @@ test("schemas reject unsafe or malformed content", () => {
   const hero = { ...DEFAULTS.hero };
   assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "javascript:alert(1)" }).success, false);
   assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "http://insecure.example" }).success, false);
+  assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "//evil.example/phish" }).success, false);   // protocol-relative = off-site
+  assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "//faqs" }).success, false);
+  assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "/" }).success, true);
+  assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "/shop?category=chicken-cuts" }).success, true);
   assert.equal(SCHEMAS.hero.safeParse({ ...hero, imagePath: "/../secret" }).success, false);
   assert.equal(SCHEMAS.hero.safeParse({ ...hero, primaryHref: "https://example.com/x" }).success, true);
   assert.equal(SCHEMAS.theme.safeParse({ ...DEFAULTS.theme, brand: "red" }).success, false);
@@ -54,6 +58,17 @@ test("delivery: an unlisted area has unknown distance and is charged", () => {
   assert.equal(areaDistance("Atlantis", cfg), null);
   assert.equal(deliveryCharge(300, null, cfg), 80);
   assert.equal(areaDistance("  gulshan ", cfg), 4);       // case and whitespace insensitive
+});
+
+test("delivery policy is INACTIVE by default: no charge is applied and nothing is promised", () => {
+  assert.equal(DEFAULTS.commerce.active, false);
+  assert.deepEqual(DEFAULTS.commerce.areas, []);
+  const off = { ...cfg, active: false };
+  assert.equal(deliveryCharge(300, 12, off), 0);                 // inactive: even a far, small order has no website-applied charge
+  assert.equal(deliveryCharge(300, null, off), 0);
+  assert.equal(deliverySummary(off), "Delivery charge is confirmed by our team");
+  assert.match(deliveryNote(off), /not been announced/);
+  for (const s of [deliverySummary(DEFAULTS.commerce), deliveryNote(DEFAULTS.commerce)]) assert.doesNotMatch(s, /৳|km|free/i);
 });
 
 test("delivery summary is generated from the configuration", () => {

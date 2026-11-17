@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { pageContent } from "@/lib/content/server";
-import { deliverySummary } from "@/lib/pricing";
+import { deliveryNote } from "@/lib/pricing";
 import { PAGES } from "./content";
 
 export const dynamicParams = false;
@@ -21,7 +21,7 @@ export default async function InfoPage({ params }: { params: Promise<{ page: str
   // Tokens are replaced with admin-managed content so these pages never contradict the settings.
   const contact = [site.phone && `Phone: ${site.phone}`, site.email && `Email: ${site.email}`, site.address && `Address: ${site.address}`].filter(Boolean).join(" · ");
   const expand = (b: string) =>
-    b === "{{DELIVERY_RULE}}" ? `${deliverySummary(commerce)}. The delivery charge is calculated at checkout from your delivery area.`
+    b === "{{DELIVERY_RULE}}" ? deliveryNote(commerce)
     : b === "{{CONTACT_DETAILS}}" ? (contact || "Phone, email and address details will be published here once confirmed by the business.")
     : b;
 

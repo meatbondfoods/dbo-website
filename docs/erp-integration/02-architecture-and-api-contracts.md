@@ -5,7 +5,7 @@ Status: **design for review.** Nothing here is applied to a database or deployed
 ## Architecture
 
 ```
-Customer browser ──(Supabase Phone OTP session)──▶ Next.js website (Vercel)
+Customer browser ──(Supabase Auth: email + password session cookie)──▶ Next.js website (Vercel)
                                                      │  server routes, customer's own JWT
                                                      ▼
                                       Shared Supabase project  (same one the ERP uses)
@@ -42,9 +42,11 @@ All responses are `Cache-Control: no-store`. Errors are `{ "error": string, "det
 |---|---|---|
 | `GET /api/catalog` | public | Published, ERP-priced products. Source: `web_catalog` view. Empty until the ERP price source is approved. |
 | `GET /api/catalog/{slug}` | public | One product. |
-| `POST /api/auth/otp/request` | public, rate-limited | Send a Phone OTP to a normalised BD mobile. |
-| `POST /api/auth/otp/verify` | public, rate-limited | Verify the OTP and create the session (cookie). |
-| `POST /api/account/register` | customer session | Calls `register_web_customer(name, email)`. Returns `{ customer_code, erp_match_status }`. |
+| `POST /api/auth/register` | public, rate-limited | Supabase `signUp`. Same response whether or not the email exists. Verification email is sent by Supabase. |
+| `POST /api/auth/login` | public, rate-limited | `signInWithPassword`. Unverified emails are refused. |
+| `POST /api/auth/logout`, `/forgot`, `/reset` | see code | Sign out; send reset link (always the same answer); set a new password. |
+| `GET /auth/callback` | Supabase links | Exchanges the one-time `code` for a session (verification + recovery). Redirect target is restricted to local paths. |
+| (first verified sign-in) | customer session | Calls `register_web_customer(name, phone?)`: idempotent, issues the permanent `MBM-CUS-` id, refuses unverified emails. |
 | `GET/PATCH /api/account/profile` | customer session | Read or update `full_name`, `email` only. Code and phone are immutable. |
 | `GET/POST/PATCH/DELETE /api/account/addresses` | customer session | Delivery addresses (RLS: own rows). |
 | `POST /api/orders` | customer session + `Idempotency-Key` header | Calls `place_web_order`. Body: `{ delivery: {line1, area, city, notes?}, paymentMethod, lines: [{productId, quantity}] }`. Returns `201 { reference, status: "pending_confirmation", subtotal, deliveryCharge, total }`. |
@@ -74,5 +76,5 @@ Order submission errors: `400` bad/missing idempotency key, `401` not signed in,
 ## Open questions
 - Where does the delivery charge belong in the ERP? `sales_orders` has no such column (conversion currently folds it into `total_amount` and `notes`).
 - `sales_orders.order_number` convention: the web reference is reused as a placeholder.
-- SMS provider and cost for Phone OTP.
+- Email delivery: Supabase's built-in sender is rate-limited and not for production; a custom SMTP provider is needed before launch.
 - Which Supabase project is the safe development target.

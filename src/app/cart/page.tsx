@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import { useCart, useHydrated } from "@/store/cart";
 import { useCatalog } from "@/lib/useCatalog";
-import { deliverySummary } from "@/lib/pricing";
+import { deliveryNote } from "@/lib/pricing";
 import { useCommerce } from "@/lib/useCommerce";
 import { taka } from "@/lib/format";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
@@ -61,10 +61,10 @@ export default function CartPage() {
           <h2 className="text-xl">Order summary</h2>
           <dl className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd className="font-medium">{taka(subtotal)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd className="font-medium">At checkout</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd className="font-medium">{commerce?.active ? "At checkout" : "To be confirmed"}</dd></div>
             <div className="flex justify-between border-t border-hairline pt-4 text-lg font-bold text-deep"><dt>Total before delivery</dt><dd>{taka(subtotal)}</dd></div>
           </dl>
-          {commerce && <p className="mt-4 rounded-lg bg-mint-light p-3 text-xs text-ink">{deliverySummary(commerce)}. Your delivery charge is calculated at checkout from your area.</p>}
+          {commerce && <p className="mt-4 rounded-lg bg-mint-light p-3 text-xs text-ink">{deliveryNote(commerce)}</p>}
           <ButtonLink href="/checkout" className="mt-6 w-full">Proceed to checkout</ButtonLink>
           <ButtonLink href="/shop" variant="ghost" className="mt-2 w-full">Continue shopping</ButtonLink>
         </aside>

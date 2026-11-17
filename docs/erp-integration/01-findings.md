@@ -59,7 +59,8 @@ Evidence comes from the ERP repository (`meat-bond-foods-erp`, migrations 001-02
 
 ## 5. Customer authentication
 
-- Supabase Phone OTP needs an SMS provider configured in the Supabase project. **None is known to be configured.** Provider choice and cost are the owner's decision (Bangladesh SMS gateway).
+- **Approved: email + password** through Supabase Auth, with email verification required. This needs, in the Supabase project: the Email provider enabled, "Confirm email" ON, the Site URL and redirect URL `<SITE_URL>/auth/callback`, and (for production volume) a custom SMTP provider. None of this has been touched.
+- Consequence: an email-verified account has **no verified phone number**, so automatic ERP customer matching by phone would be unsafe. Matching is therefore deferred to the integration phase and must be staff-confirmed (or use a later phone check).
 - Customers and staff would share `auth.users`. ERP policies grant access through `has_permission()` / `is_active_user()`, which require a `user_profiles` row. Customers have none, so they should be blocked from ERP tables. **This is based on the migration files and must be verified on the dev database** with `supabase/checks/015_verify_access_control.sql` before any customer can sign in there.
 - Customer-facing database calls use the **customer's own session** (`auth.uid()`), so the service-role key is not needed for orders.
 

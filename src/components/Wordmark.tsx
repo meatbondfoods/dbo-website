@@ -1,7 +1,15 @@
 import Link from "next/link";
 
 /** MeatBond Mart wordmark: a monogram tile with a gold accent, plus the name set in Inter. Uses theme variables. */
-export function Wordmark({ light = false }: { light?: boolean }) {
+export function Wordmark({ light = false, logo }: { light?: boolean; logo?: { path: string; alt: string } }) {
+  if (logo?.path) {
+    return (
+      <Link href="/" aria-label="MeatBond Mart, home" className="inline-flex items-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logo.path} alt={logo.alt || "MeatBond Mart"} className={`h-9 w-auto max-w-[180px] object-contain ${light ? "rounded bg-white p-1" : ""}`} />
+      </Link>
+    );
+  }
   const tile = light ? "rgb(255 255 255)" : "rgb(var(--c-brand))";
   const stroke = light ? "rgb(var(--c-brand))" : "rgb(255 255 255)";
   return (

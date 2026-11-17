@@ -6,7 +6,7 @@ import { ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "@/store/cart";
 import { useUI } from "@/store/ui";
 import { useCatalog } from "@/lib/useCatalog";
-import { deliverySummary } from "@/lib/pricing";
+import { deliveryNote } from "@/lib/pricing";
 import { useCommerce } from "@/lib/useCommerce";
 import { taka } from "@/lib/format";
 import { QuantitySelector } from "./ui/QuantitySelector";
@@ -65,7 +65,7 @@ export function CartDrawer() {
           </div>
         ) : (
           <>
-            <div className="border-b border-hairline bg-mint-light px-5 py-3 text-sm text-ink">{commerce ? deliverySummary(commerce) + ". Delivery is calculated at checkout." : "Delivery is calculated at checkout."}</div>
+            <div className="border-b border-hairline bg-mint-light px-5 py-3 text-sm text-ink">{commerce ? deliveryNote(commerce) : "Delivery is confirmed at checkout."}</div>
             <ul className="flex-1 divide-y divide-hairline overflow-y-auto px-5">
               {rows.map(({ l, p, o }) => (
                 <li key={l.productId + l.optionId} className="flex gap-3 py-4">
@@ -86,7 +86,7 @@ export function CartDrawer() {
             <div className="border-t border-hairline px-5 py-4">
               <dl className="space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{taka(subtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>At checkout</dd></div>
+                <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{commerce?.active ? "At checkout" : "To be confirmed"}</dd></div>
                 <div className="flex justify-between pt-2 text-base font-bold text-deep"><dt>Total before delivery</dt><dd>{taka(subtotal)}</dd></div>
               </dl>
               <div className="mt-4 grid gap-2">

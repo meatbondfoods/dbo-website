@@ -22,13 +22,26 @@ export const DEFAULTS: ContentMap = {
     footerBlurb: "Premium meat, poultry and food shopping from MeatBond Foods, packed with care and delivered across Dhaka.",
   },
   commerce: {
-    // UNCONFIRMED: "free within 7 km" is the owner's stated rule. The charge beyond it, the free-over-amount
-    // rule and the area distances below are SAMPLE values pending confirmation.
-    freeRadiusKm: 7, chargeBeyond: 80, freeOverAmount: 1500,
-    areas: [
-      { name: "Gulshan", distanceKm: 4 }, { name: "Banani", distanceKm: 5 }, { name: "Uttara", distanceKm: 12 },
-      { name: "Dhanmondi", distanceKm: 8 }, { name: "Mirpur", distanceKm: 11 },
-    ],
+    // Delivery pricing and radius are NOT approved by the business. The rules stay configurable but INACTIVE:
+    // no charge is applied and nothing about delivery pricing is promised to customers.
+    active: false, freeRadiusKm: 0, chargeBeyond: 0, freeOverAmount: 0, areas: [],
   },
   productDisplay: { items: [] },
+  banners: {
+    // One neutral banner. It makes no delivery-charge or delivery-radius claim (that policy is not approved).
+    items: [{ id: "welcome", title: "Order fresh poultry and meat online", text: "Cash on delivery is available. Our team confirms your order, and your delivery charge, by phone.", ctaLabel: "Start shopping", ctaHref: "/shop", imagePath: "", active: true }],
+  },
+  navigation: {
+    showCategories: true,
+    items: [{ label: "Home", href: "/" }, { label: "Shop", href: "/shop" }, { label: "About Us", href: "/about" }, { label: "Contact", href: "/contact" }],
+  },
+  sections: {
+    items: [
+      { id: "categories", visible: true, title: "" }, { id: "featured", visible: true, title: "" }, { id: "why", visible: true, title: "" },
+      { id: "quality", visible: true, title: "" }, { id: "best", visible: true, title: "" }, { id: "banner", visible: true, title: "" },
+      { id: "reviews", visible: true, title: "" }, { id: "newsletter", visible: true, title: "" },
+    ],
+  },
+  seo: { siteTitle: "MeatBond Mart | Premium Meat, Poultry & Food Shopping", description: "Fresh chicken, processed products and quality meat from MeatBond Foods.", ogImage: "" },
+  brand: { logoPath: "", logoAlt: "MeatBond Mart" },
 };

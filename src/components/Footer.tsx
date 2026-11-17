@@ -5,7 +5,7 @@ import type { ContentMap } from "@/lib/content/schema";
 import { Wordmark } from "./Wordmark";
 
 // Contact details and social links come from the admin-managed "site" content. Nothing is invented: blank means hidden.
-export function Footer({ categories, site }: { categories: Category[]; site: ContentMap["site"] }) {
+export function Footer({ categories, site, logo }: { categories: Category[]; site: ContentMap["site"]; logo: ContentMap["brand"] }) {
   const social = [
     { label: "Facebook", href: site.facebook, Icon: Facebook },
     { label: "Instagram", href: site.instagram, Icon: Instagram },
@@ -17,7 +17,7 @@ export function Footer({ categories, site }: { categories: Category[]; site: Con
     <footer className="on-dark mt-24 bg-deep text-white">
       <div className="container-page grid gap-10 py-16 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr]">
         <div>
-          <Wordmark light />
+          <Wordmark light logo={{ path: logo.logoPath, alt: logo.logoAlt }} />
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/80">{site.footerBlurb}</p>
           {social.length > 0 && (
             <ul className="mt-6 flex gap-2" aria-label="Social media">

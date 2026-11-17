@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { ShieldCheck, Snowflake, Truck } from "lucide-react";
 import type { ContentMap, DeliveryConfig } from "@/lib/content/schema";
-import { deliverySummary } from "@/lib/pricing";
 import { ButtonLink } from "./ui/Button";
 
 const ICONS = [Snowflake, Truck, ShieldCheck, ShieldCheck];
@@ -28,10 +27,11 @@ export function Hero({ hero, commerce }: { hero: ContentMap["hero"]; commerce: D
           <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-hairline bg-white shadow-lift">
             <Image src={hero.imagePath} alt={hero.imageAlt} fill unoptimized priority sizes="(min-width:1024px) 50vw, 100vw" className="object-cover" />
           </div>
-          <div className="absolute -bottom-4 left-4 hidden rounded-xl border border-hairline bg-white px-4 py-3 shadow-lift sm:block">
-            <p className="text-xs text-ink-soft">Delivery</p><p className="text-sm font-bold text-deep">Free within {commerce.freeRadiusKm} km</p>
-            <span className="sr-only">{deliverySummary(commerce)}</span>
-          </div>
+          {commerce.active && commerce.freeRadiusKm > 0 && (
+            <div className="absolute -bottom-4 left-4 hidden rounded-xl border border-hairline bg-white px-4 py-3 shadow-lift sm:block">
+              <p className="text-xs text-ink-soft">Delivery</p><p className="text-sm font-bold text-deep">Free within {commerce.freeRadiusKm} km</p>
+            </div>
+          )}
         </div>
       </div>
     </section>
