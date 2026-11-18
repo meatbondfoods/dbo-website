@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { PublicOnly } from "@/components/PublicOnly";
+import { MetaPixel } from "@/components/MetaPixel";
 import { getRepositories } from "@/lib/repositories";
 import { pageContent } from "@/lib/content/server";
 import { themeCss } from "@/lib/content/themeCss";
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={sans.variable}>
       <head><style dangerouslySetInnerHTML={{ __html: themeCss(theme) }} /></head>
       <body className="flex min-h-screen flex-col">
+        <MetaPixel />
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2.5 focus:font-semibold focus:text-brand focus:shadow-lift">Skip to content</a>
         {preview && <PreviewBanner />}
         <PublicOnly><Header categories={categories} announcement={site.announcement} nav={nav} logo={brand} /></PublicOnly>

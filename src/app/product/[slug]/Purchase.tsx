@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ShoppingBag } from "lucide-react";
 import type { Product } from "@/lib/domain/types";
 import { useCart } from "@/store/cart";
@@ -7,8 +7,9 @@ import { useUI } from "@/store/ui";
 import { PriceDisplay } from "@/components/ui/PriceDisplay";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { trackAddToCart, trackViewContent } from "@/lib/meta-pixel";
 
-export function Purchase({ product }: { product: Product }) {
+export function Purchase({ product, categoryName }: { product: Product; categoryName?: string }) {
   const [optionId, setOptionId] = useState(product.options[0].id);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -16,6 +17,15 @@ export function Purchase({ product }: { product: Product }) {
   const openDrawer = useUI((s) => s.openDrawer);
   const option = product.options.find((o) => o.id === optionId)!;
   const soldOut = product.availability === "out_of_stock";
+
+  useEffect(() => {
+    trackViewContent({
+      id: product.id,
+      name: product.name,
+      price: product.options[0]?.price ?? 0,
+      category: categoryName,
+    });
+  }, [product.id, product.name, product.options, categoryName]);
 
   return (
     <div className="mt-6">
@@ -35,7 +45,18 @@ export function Purchase({ product }: { product: Product }) {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <QuantitySelector value={qty} onChange={setQty} label={product.name} />
         <Button className="min-w-[180px] flex-1 sm:flex-none sm:px-10" disabled={soldOut}
-          onClick={() => { add({ productId: product.id, optionId, quantity: qty }); setAdded(true); openDrawer(); }}>
+          onClick={() => {
+            add({ productId: product.id, optionId, quantity: qty });
+            setAdded(true);
+            openDrawer();
+            trackAddToCart({
+              id: product.id,
+              name: product.name,
+              price: option.price,
+              quantity: qty,
+              category: categoryName,
+            });
+          }}>
           {soldOut ? "Out of stock" : added ? <><Check size={18} aria-hidden /> Added to cart</> : <><ShoppingBag size={18} aria-hidden /> Add to cart</>}
         </Button>
       </div>

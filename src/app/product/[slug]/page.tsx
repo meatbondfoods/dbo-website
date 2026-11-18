@@ -42,7 +42,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <h1 className="text-3xl sm:text-4xl">{product.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2"><Stars rating={product.rating} count={product.reviewCount} /><Availability value={product.availability} /></div>
           <p className="mt-5 text-base text-ink-soft">{product.description}</p>
-          <Purchase product={product} />
+          <Purchase product={product} categoryName={category?.name} />
           <ul className="mt-8 grid gap-3 border-t border-hairline pt-6 text-sm">
             {[[Snowflake, "Packed and dispatched chilled"], [Truck, commerce.active ? deliveryNote(commerce) : "Delivery charge confirmed by our team"], [Wallet, "Cash on delivery available"]].map(([I, t]) => {
               const Icon = I as typeof Snowflake; return <li key={t as string} className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-mint-light text-brand"><Icon size={18} aria-hidden /></span>{t as string}</li>;

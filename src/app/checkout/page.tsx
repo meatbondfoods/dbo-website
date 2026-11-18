@@ -11,6 +11,7 @@ import { rememberOrder } from "@/lib/localOrders";
 import type { PaymentMethod } from "@/lib/domain/types";
 import { Field, TextArea, TextInput } from "@/components/ui/FormControls";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { trackInitiateCheckout, trackPurchase } from "@/lib/meta-pixel";
 
 const PAY: { id: PaymentMethod; label: string; note: string }[] = [
   { id: "cod", label: "Cash on delivery", note: "Pay when your order arrives" },
@@ -40,6 +41,19 @@ export default function CheckoutPage() {
   const [fe, setFe] = useState<Record<string, string[]>>({});
   // One key per checkout attempt: a double-click or retry reuses it, so the server never creates two orders.
   const keyRef = useRef<string>(crypto.randomUUID());
+  const checkoutTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (checkoutTrackedRef.current || !products || lines.length === 0) return;
+    checkoutTrackedRef.current = true;
+    const items = lines.flatMap((l) => {
+      const p = products.find((x) => x.id === l.productId);
+      const o = p?.options.find((x) => x.id === l.optionId);
+      return p && o ? [{ id: p.id, name: p.name, price: o.price, quantity: l.quantity }] : [];
+    });
+    const subtotal = items.reduce((acc, i) => acc + i.price * i.quantity, 0);
+    trackInitiateCheckout({ items, subtotal, currency: "BDT" });
+  }, [products, lines]);
 
   if (!hydrated || !products || !commerce) return <div className="container-page py-20 text-sm text-ink-soft" role="status">Loading checkout…</div>;
   if (lines.length === 0)
@@ -81,6 +95,20 @@ export default function CheckoutPage() {
         return;
       }
       rememberOrder(data.reference, get("phone"));
+
+      const purchaseItems = lines.flatMap((l) => {
+        const p = (products ?? []).find((x) => x.id === l.productId);
+        const o = p?.options.find((x) => x.id === l.optionId);
+        return p && o ? [{ id: p.id, name: p.name, price: o.price, quantity: l.quantity }] : [];
+      });
+
+      trackPurchase({
+        reference: data.reference,
+        total: data.total,
+        items: purchaseItems,
+        currency: "BDT",
+      });
+
       clear();
       router.push(`/order/${data.reference}`);
     } catch { setError("Network problem. Please try again; you won't be charged twice."); }

@@ -8,6 +8,7 @@ import { useCart } from "@/store/cart";
 import { useUI } from "@/store/ui";
 import { Availability } from "./Availability";
 import { PriceDisplay } from "./ui/PriceDisplay";
+import { trackAddToCart } from "@/lib/meta-pixel";
 
 export function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const add = useCart((s) => s.add);
@@ -33,7 +34,18 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         </div>
         <div className="mt-4 grid grid-cols-[1fr_auto] gap-2 pt-1">
           <button disabled={soldOut} aria-label={soldOut ? `${product.name} is out of stock` : `Add ${product.name}, ${option.label}, to cart`}
-            onClick={() => { add({ productId: product.id, optionId: option.id, quantity: 1 }); setAdded(true); setTimeout(() => setAdded(false), 1800); openDrawer(); }}
+            onClick={() => {
+              add({ productId: product.id, optionId: option.id, quantity: 1 });
+              setAdded(true);
+              setTimeout(() => setAdded(false), 1800);
+              openDrawer();
+              trackAddToCart({
+                id: product.id,
+                name: product.name,
+                price: option.price,
+                quantity: 1,
+              });
+            }}
             className="btn-primary w-full">
             {added ? <><Check size={16} aria-hidden /> Added</> : <><ShoppingBag size={16} aria-hidden /> {soldOut ? "Sold out" : "Add to cart"}</>}
           </button>
