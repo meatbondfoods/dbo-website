@@ -66,6 +66,18 @@ export async function resetPassword(token: string, password: string): Promise<Ok
   return mode === "demo" ? demo.resetPassword(token, password) : { ok: false, error: "Accounts are not available yet." };
 }
 
+export async function getOAuthUrl(provider: "facebook", next = "/account"): Promise<{ url?: string; error?: string }> {
+  const mode = authMode();
+  if (mode === "supabase") {
+    const url = await supa.getOAuthUrl(provider, next);
+    return url ? { url } : { error: "Could not initialize Facebook login." };
+  }
+  if (mode === "demo") {
+    return { url: `/api/auth/oauth?provider=${provider}&next=${encodeURIComponent(next)}` };
+  }
+  return { error: "Accounts are not available yet." };
+}
+
 // ---- profile + addresses (the customerId always comes from the verified session, never from the request) ----
 export async function updateProfile(u: AccountUser, p: ProfileInput): Promise<boolean> {
   if (authMode() === "supabase") return supa.updateProfile(u.customerId, p);

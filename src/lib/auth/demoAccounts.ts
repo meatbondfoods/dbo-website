@@ -99,3 +99,17 @@ export async function ensureDevAdmin(email = "admin@mart.local"): Promise<{ emai
   store.setAdmin(user.id, "owner");
   return { email, password };
 }
+
+/** Simulates third-party social OAuth sign-in (e.g. Facebook) in the local dev environment. */
+export function demoOAuthLogin(email = "demo.facebook.customer@example.com", name = "Facebook Customer"): { ok: true; sessionToken: string } {
+  let user = store.findUserByEmail(email);
+  if (!user) {
+    user = store.createUser(email, "social-auth-no-password", { name, phone: "" })!;
+  }
+  if (!user.verifiedAt) {
+    store.updateUser(user.id, { verifiedAt: new Date().toISOString() });
+    store.ensureCustomer(user.id, name, "");
+  }
+  const sessionToken = store.createSession(user.id, "customer", SESSION_TTL);
+  return { ok: true, sessionToken };
+}

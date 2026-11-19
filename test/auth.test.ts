@@ -152,6 +152,16 @@ test("admin accounts: role comes from the server-side store and gates the admin 
   assert.equal(A.sessionCustomer((s as { sessionToken: string }).sessionToken), null);   // admin session is not a customer session
 });
 
+test("social login: demo OAuth issues a verified session and customer ID", () => {
+  const r = A.demoOAuthLogin("fb.user@example.com", "FB User");
+  assert.equal(r.ok, true);
+  const customer = A.sessionCustomer(r.sessionToken);
+  assert.ok(customer);
+  assert.equal(customer?.email, "fb.user@example.com");
+  assert.equal(customer?.fullName, "FB User");
+  assert.match(customer?.customerCode ?? "", /^MBM-CUS-\d{6}$/);
+});
+
 import { authMode } from "../src/lib/auth/config.ts";
 test("auth mode: demo is impossible in production; Supabase needs explicit opt-in, not just keys", () => {
   const keep = { ...process.env };

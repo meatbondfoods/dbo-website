@@ -56,17 +56,33 @@ export async function exchangeCode(code: string): Promise<boolean> {
   return !error;
 }
 
+export async function getOAuthUrl(provider: "facebook", next = "/account"): Promise<string | null> {
+  const sb = await client();
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/account";
+  const redirectTo = `${site()}/auth/callback?next=${encodeURIComponent(safeNext)}`;
+  const { data, error } = await sb.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo,
+      scopes: "email,public_profile",
+    },
+  });
+  if (error || !data.url) return null;
+  return data.url;
+}
+
 /** getUser() asks Supabase to validate the JWT; the role/ownership is enforced again by RLS in the database. */
 export async function currentCustomer(): Promise<AccountUser | null> {
   const sb = await client();
   const { data: { user } } = await sb.auth.getUser();
   if (!user || !user.email_confirmed_at) return null;
-  const meta = user.user_metadata as { full_name?: string; phone?: string };
+  const meta = user.user_metadata as { full_name?: string; name?: string; phone?: string };
+  const name = meta.full_name || meta.name || "Customer";
   // register_web_customer() is idempotent and issues the permanent MBM-CUS id from a database sequence.
-  const { data, error } = await sb.rpc("register_web_customer", { p_full_name: meta.full_name ?? "Customer", p_phone: meta.phone ?? "" });
+  const { data, error } = await sb.rpc("register_web_customer", { p_full_name: name, p_phone: meta.phone ?? "" });
   if (error || !data) return null;
   const row = Array.isArray(data) ? data[0] : data;
-  return { customerId: row.customer_id, customerCode: row.customer_code, email: user.email!, fullName: row.full_name, phone: row.phone ?? "" };
+  return { customerId: row.customer_id, customerCode: row.customer_code, email: user.email ?? "", fullName: row.full_name, phone: row.phone ?? "" };
 }
 
 export async function updateProfile(customerId: string, p: ProfileInput) {

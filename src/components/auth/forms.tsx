@@ -32,6 +32,32 @@ function PasswordField({ label, name, error, hint, autoComplete }: { label: stri
     </div>
   );
 }
+
+function SocialDivider() {
+  return (
+    <div className="relative my-2">
+      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-hairline" /></div>
+      <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-ink-soft">Or continue with</span></div>
+    </div>
+  );
+}
+
+export function FacebookLoginButton({ next }: { next?: string | null }) {
+  const href = `/api/auth/oauth?provider=facebook${next ? `&next=${encodeURIComponent(next)}` : ""}`;
+  return (
+    <a
+      href={href}
+      className="btn-outline flex w-full items-center justify-center gap-2.5 text-sm font-semibold hover:border-[#1877F2]/50 hover:bg-[#1877F2]/5"
+      aria-label="Continue with Facebook"
+    >
+      <svg className="h-5 w-5 fill-[#1877F2]" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+      </svg>
+      Continue with Facebook
+    </a>
+  );
+}
+
 const form = (e: React.FormEvent<HTMLFormElement>) => Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
 
 export function LoginForm() {
@@ -48,13 +74,23 @@ export function LoginForm() {
     <form onSubmit={submit} className="space-y-4" noValidate>
       {verified && <Notice kind="ok">Email verified. You can sign in now.</Notice>}
       {reset && <Notice kind="ok">Password updated. Please sign in with your new password.</Notice>}
-      {linkErr && <Notice kind="error">That link is invalid or has expired.</Notice>}
+      {linkErr && (
+        <Notice kind="error">
+          {linkErr === "oauth_init_failed"
+            ? "Could not connect to Facebook. Please verify Facebook provider is configured in Supabase."
+            : linkErr === "auth_off"
+            ? "Facebook login is not available yet."
+            : "That link is invalid or has expired."}
+        </Notice>
+      )}
       <TextInput label="Email" name="email" type="email" required autoComplete="email" />
       <PasswordField label="Password" name="password" autoComplete="current-password" />
       {err && <Notice kind="error">{err}</Notice>}
       {unverified && <Button type="button" variant="outline" onClick={async () => { const r = await post("/api/auth/resend", { email: unverified }); setDev(r.data.devLink); setErr(r.data.message ?? ""); }}>Resend verification email</Button>}
       <DevLink href={dev} />
       <Button className="w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
+      <SocialDivider />
+      <FacebookLoginButton next={sp.get("next")} />
       <p className="text-center text-sm"><Link href="/forgot-password" className="font-semibold text-brand underline">Forgot your password?</Link></p>
     </form>
   );
@@ -81,6 +117,8 @@ export function RegisterForm() {
       <TextInput label="Confirm password" name="confirm" type="password" required autoComplete="new-password" error={fe.confirm?.[0]} />
       {err && <Notice kind="error">{err}</Notice>}
       <Button className="w-full" disabled={busy}>{busy ? "Creating account…" : "Create account"}</Button>
+      <SocialDivider />
+      <FacebookLoginButton />
       <p className="text-center text-xs text-ink-soft">By registering you agree to our <Link href="/terms" className="underline">terms</Link> and <Link href="/privacy-policy" className="underline">privacy policy</Link>.</p>
     </form>
   );
