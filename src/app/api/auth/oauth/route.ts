@@ -18,15 +18,17 @@ export async function GET(req: Request) {
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/account";
   const origin = getRequestOrigin(req);
 
-  if (provider !== "facebook") {
+  if (provider !== "facebook" && provider !== "google") {
     return NextResponse.redirect(new URL("/login?error=invalid_provider", origin));
   }
 
   const mode = authMode();
 
   if (mode === "demo") {
-    // In local development demo mode, simulate Facebook OAuth sign in
-    const r = demo.demoOAuthLogin("demo.facebook.customer@example.com", "Facebook Customer");
+    // In local development demo mode, simulate OAuth sign in
+    const email = provider === "google" ? "demo.google.customer@example.com" : "demo.facebook.customer@example.com";
+    const name = provider === "google" ? "Google Customer" : "Facebook Customer";
+    const r = demo.demoOAuthLogin(email, name);
     const cookieStore = await cookies();
     cookieStore.set("mart_session", r.sessionToken, {
       httpOnly: true,
@@ -39,7 +41,7 @@ export async function GET(req: Request) {
   }
 
   if (mode === "supabase") {
-    const oauth = await getOAuthUrl("facebook", safeNext, origin);
+    const oauth = await getOAuthUrl(provider, safeNext, origin);
     if (oauth.url) {
       return NextResponse.redirect(oauth.url);
     }

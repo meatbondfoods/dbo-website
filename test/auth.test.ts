@@ -152,14 +152,30 @@ test("admin accounts: role comes from the server-side store and gates the admin 
   assert.equal(A.sessionCustomer((s as { sessionToken: string }).sessionToken), null);   // admin session is not a customer session
 });
 
-test("social login: demo OAuth issues a verified session and customer ID", () => {
-  const r = A.demoOAuthLogin("fb.user@example.com", "FB User");
-  assert.equal(r.ok, true);
-  const customer = A.sessionCustomer(r.sessionToken);
-  assert.ok(customer);
-  assert.equal(customer?.email, "fb.user@example.com");
-  assert.equal(customer?.fullName, "FB User");
-  assert.match(customer?.customerCode ?? "", /^MBM-CUS-\d{6}$/);
+test("social login: demo OAuth issues a verified session and customer ID for Google and Facebook", () => {
+  // Facebook login
+  const rFb = A.demoOAuthLogin("fb.user@example.com", "FB User");
+  assert.equal(rFb.ok, true);
+  const cFb = A.sessionCustomer(rFb.sessionToken);
+  assert.ok(cFb);
+  assert.equal(cFb?.email, "fb.user@example.com");
+  assert.equal(cFb?.fullName, "FB User");
+  assert.match(cFb?.customerCode ?? "", /^MBM-CUS-\d{6}$/);
+
+  // Google login
+  const rGoogle = A.demoOAuthLogin("google.user@example.com", "Google User");
+  assert.equal(rGoogle.ok, true);
+  const cGoogle = A.sessionCustomer(rGoogle.sessionToken);
+  assert.ok(cGoogle);
+  assert.equal(cGoogle?.email, "google.user@example.com");
+  assert.equal(cGoogle?.fullName, "Google User");
+  assert.match(cGoogle?.customerCode ?? "", /^MBM-CUS-\d{6}$/);
+
+  // Idempotency: repeated login with the same Google email retrieves the same customer profile
+  const rGoogle2 = A.demoOAuthLogin("google.user@example.com", "Google User");
+  const cGoogle2 = A.sessionCustomer(rGoogle2.sessionToken);
+  assert.equal(cGoogle2?.customerId, cGoogle?.customerId);
+  assert.equal(cGoogle2?.customerCode, cGoogle?.customerCode);
 });
 
 import { authMode } from "../src/lib/auth/config.ts";

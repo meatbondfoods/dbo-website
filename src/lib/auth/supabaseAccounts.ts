@@ -57,7 +57,7 @@ export async function exchangeCode(code: string): Promise<boolean> {
   return !error;
 }
 
-export async function getOAuthUrl(provider: "facebook", next = "/account", origin?: string | null): Promise<string | null> {
+export async function getOAuthUrl(provider: "facebook" | "google", next = "/account", origin?: string | null): Promise<string | null> {
   const sb = await client();
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/account";
   const baseUrl = resolveSiteUrl(origin);
@@ -66,7 +66,8 @@ export async function getOAuthUrl(provider: "facebook", next = "/account", origi
     provider,
     options: {
       redirectTo,
-      scopes: "email,public_profile",
+      scopes: provider === "facebook" ? "email,public_profile" : "email,profile",
+      queryParams: provider === "google" ? { access_type: "offline", prompt: "select_account" } : undefined,
     },
   });
   if (error || !data.url) return null;

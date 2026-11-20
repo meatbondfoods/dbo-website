@@ -66,11 +66,13 @@ export async function resetPassword(token: string, password: string): Promise<Ok
   return mode === "demo" ? demo.resetPassword(token, password) : { ok: false, error: "Accounts are not available yet." };
 }
 
-export async function getOAuthUrl(provider: "facebook", next = "/account", origin?: string | null): Promise<{ url?: string; error?: string }> {
+export type OAuthProvider = "facebook" | "google";
+
+export async function getOAuthUrl(provider: OAuthProvider, next = "/account", origin?: string | null): Promise<{ url?: string; error?: string }> {
   const mode = authMode();
   if (mode === "supabase") {
     const url = await supa.getOAuthUrl(provider, next, origin);
-    return url ? { url } : { error: "Could not initialize Facebook login." };
+    return url ? { url } : { error: `Could not initialize ${provider === "google" ? "Google" : "Facebook"} login.` };
   }
   if (mode === "demo") {
     return { url: `/api/auth/oauth?provider=${provider}&next=${encodeURIComponent(next)}` };
