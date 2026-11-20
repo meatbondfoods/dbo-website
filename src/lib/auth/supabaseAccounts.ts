@@ -3,6 +3,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { AccountUser, AddressDto, Err, Ok } from "./types";
 import type { AddressInput, ProfileInput } from "./schemas";
+import { resolveSiteUrl } from "./config";
 
 /**
  * Supabase Auth provider (email + password, email verification, password reset).
@@ -23,7 +24,7 @@ async function client() {
     },
   });
 }
-const site = () => process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const site = (origin?: string | null) => resolveSiteUrl(origin);
 const generic = "Check your email for a verification link.";
 
 export async function register(i: { fullName: string; email: string; password: string; phone: string }): Promise<Ok<{ message: string }> | Err> {
@@ -56,10 +57,11 @@ export async function exchangeCode(code: string): Promise<boolean> {
   return !error;
 }
 
-export async function getOAuthUrl(provider: "facebook", next = "/account"): Promise<string | null> {
+export async function getOAuthUrl(provider: "facebook", next = "/account", origin?: string | null): Promise<string | null> {
   const sb = await client();
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/account";
-  const redirectTo = `${site()}/auth/callback?next=${encodeURIComponent(safeNext)}`;
+  const baseUrl = resolveSiteUrl(origin);
+  const redirectTo = `${baseUrl}/auth/callback?next=${encodeURIComponent(safeNext)}`;
   const { data, error } = await sb.auth.signInWithOAuth({
     provider,
     options: {
@@ -75,8 +77,10 @@ export async function getOAuthUrl(provider: "facebook", next = "/account"): Prom
 export async function currentCustomer(): Promise<AccountUser | null> {
   const sb = await client();
   const { data: { user } } = await sb.auth.getUser();
-  if (!user || !user.email_confirmed_at) return null;
-  const meta = user.user_metadata as { full_name?: string; name?: string; phone?: string };
+  if (!user) return null;
+  const isConfirmed = !!(user.email_confirmed_at || user.confirmed_at || (user.app_metadata?.provider && user.app_metadata.provider !== "email"));
+  if (!isConfirmed) return null;
+  const meta = (user.user_metadata ?? {}) as { full_name?: string; name?: string; phone?: string };
   const name = meta.full_name || meta.name || "Customer";
   // register_web_customer() is idempotent and issues the permanent MBM-CUS id from a database sequence.
   const { data, error } = await sb.rpc("register_web_customer", { p_full_name: name, p_phone: meta.phone ?? "" });

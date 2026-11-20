@@ -194,3 +194,49 @@ test("admin gate: open in development; in production only with the deliberate sw
     assert.equal(set({ NODE_ENV: "production", MART_ADMIN: "enabled", MART_AUTH: "supabase", ...keys }), true);
   } finally { for (const k of Object.keys(process.env)) if (!(k in keep)) delete process.env[k]; Object.assign(process.env, keep); }
 });
+
+import { resolveSiteUrl, sanitizeSiteUrl } from "../src/lib/auth/config.ts";
+
+test("site URL resolution: separates localhost and production, sanitizes typos, and supports dynamic origins", () => {
+  const keep = { ...process.env };
+  try {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    delete process.env.VERCEL_URL;
+
+    // Default fallback
+    assert.equal(resolveSiteUrl(), "http://localhost:3000");
+
+    // Localhost request origin
+    assert.equal(resolveSiteUrl("http://localhost:3000"), "http://localhost:3000");
+    assert.equal(resolveSiteUrl("http://localhost:3000/"), "http://localhost:3000");
+
+    // Production request origin
+    assert.equal(resolveSiteUrl("https://meatbond-foods-mart.vercel.app"), "https://meatbond-foods-mart.vercel.app");
+
+    // Auto-correction of previous hyphen typo
+    assert.equal(resolveSiteUrl("https://meat-bond-foods-mart.vercel.app"), "https://meatbond-foods-mart.vercel.app");
+    assert.equal(sanitizeSiteUrl("https://meat-bond-foods-mart.vercel.app/auth/callback"), "https://meatbond-foods-mart.vercel.app/auth/callback");
+
+    // Vercel production system env
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "meatbond-foods-mart.vercel.app";
+    assert.equal(resolveSiteUrl(), "https://meatbond-foods-mart.vercel.app");
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+
+    // Vercel deployment URL
+    process.env.VERCEL_URL = "meatbond-foods-mart-git-feat.vercel.app";
+    assert.equal(resolveSiteUrl(), "https://meatbond-foods-mart-git-feat.vercel.app");
+    delete process.env.VERCEL_URL;
+
+    // Explicit NEXT_PUBLIC_SITE_URL
+    process.env.NEXT_PUBLIC_SITE_URL = "https://meatbond-foods-mart.vercel.app";
+    assert.equal(resolveSiteUrl(), "https://meatbond-foods-mart.vercel.app");
+
+    // Request origin takes precedence over env var for preview/custom domains
+    assert.equal(resolveSiteUrl("http://localhost:3000"), "http://localhost:3000");
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in keep)) delete process.env[k];
+    Object.assign(process.env, keep);
+  }
+});
+

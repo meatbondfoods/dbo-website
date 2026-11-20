@@ -13,3 +13,49 @@ export function authMode(): AuthMode {
   if (process.env.NODE_ENV !== "production" && process.env.MART_AUTH !== "off") return "demo";
   return "off";
 }
+
+/**
+ * Sanitizes a URL and corrects known legacy domain typos (e.g. accidental hyphens).
+ */
+export function sanitizeSiteUrl(url: string): string {
+  let cleaned = url.trim().replace(/\/+$/, "");
+  // Safety guard against previously misconfigured hyphenated domain
+  if (cleaned.includes("meat-bond-foods-mart.vercel.app")) {
+    cleaned = cleaned.replace("meat-bond-foods-mart.vercel.app", "meatbond-foods-mart.vercel.app");
+  }
+  return cleaned;
+}
+
+/**
+ * Resolves the canonical absolute site URL for auth redirects (OAuth, email confirmations, password resets).
+ * Priority:
+ * 1. preferredOrigin: Explicit valid origin from incoming HTTP request (x-forwarded-host / host)
+ * 2. NEXT_PUBLIC_SITE_URL: Explicit environment variable
+ * 3. VERCEL_PROJECT_PRODUCTION_URL: Automatic Vercel production system env (e.g. meatbond-foods-mart.vercel.app)
+ * 4. VERCEL_URL: Automatic Vercel deployment system env
+ * 5. Fallback: http://localhost:3000
+ */
+export function resolveSiteUrl(preferredOrigin?: string | null): string {
+  if (preferredOrigin && /^https?:\/\//i.test(preferredOrigin)) {
+    return sanitizeSiteUrl(preferredOrigin);
+  }
+
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (envUrl) {
+    const withProto = /^https?:\/\//i.test(envUrl) ? envUrl : `https://${envUrl}`;
+    return sanitizeSiteUrl(withProto);
+  }
+
+  const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercelProd) {
+    return sanitizeSiteUrl(`https://${vercelProd}`);
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  if (vercelUrl) {
+    return sanitizeSiteUrl(`https://${vercelUrl}`);
+  }
+
+  return "http://localhost:3000";
+}
+
