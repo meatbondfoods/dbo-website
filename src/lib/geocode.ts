@@ -82,7 +82,7 @@ export const CANONICAL_DHAKA_AREAS: Array<{
   { name: "Tejgaon", lat: 23.7597, lon: 90.3925, keywords: ["tejgaon", "tejkunipara", "nabisco", "tibet", "industrial area"] },
   { name: "Mohammadpur", lat: 23.7658, lon: 90.3585, keywords: ["mohammadpur", "lalmatia", "adabor", "japan garden", "town hall"] },
   { name: "Badda", lat: 23.7806, lon: 90.4267, keywords: ["badda", "merul", "middle badda", "south badda", "pragoti sarani"] },
-  { name: "Banasree", lat: 23.7635, lon: 90.431, keywords: ["banasree", "bonosree", "block a", "block b", "block c", "block d", "block e", "block f", "block g", "block h", "block i", "block j", "block k", "block l", "block m", "main road banasree"] },
+  { name: "Banasree", lat: 23.762254, lon: 90.431839, keywords: ["banasree", "bonosree", "block a", "block b", "block c", "block d", "block e", "block f", "block g", "block h", "block i", "block j", "block k", "block l", "block m", "road 3", "ideal school", "farazy hospital", "sks shopping mall", "main road banasree"] },
   { name: "Aftabnagar", lat: 23.768, lon: 90.432, keywords: ["aftabnagar", "aftab nagar"] },
   { name: "Rampura", lat: 23.7612, lon: 90.4208, keywords: ["rampura", "dit road rampura", "rampura bridge", "tv station", "wasa road"] },
   { name: "Khilgaon", lat: 23.7533, lon: 90.4255, keywords: ["khilgaon", "taltola", "goran", "tilpapara"] },

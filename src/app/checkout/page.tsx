@@ -58,33 +58,35 @@ export default function CheckoutPage() {
     setLocating(true);
     setLocationStatus(null);
 
-    const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
-      if (typeof window !== "undefined" && "geolocation" in navigator) {
-        // High Accuracy Hardware GPS / Wi-Fi Triangulation (15s timeout, 5 min cache)
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 15000,
-              maximumAge: 300000,
-            });
+    const getCoords = async (): Promise<{ lat: number; lon: number }> => {
+      if (typeof window === "undefined" || !("geolocation" in navigator)) {
+        throw new Error("Geolocation is not supported by your browser");
+      }
+
+      // Phase 1: High Accuracy Hardware GPS / Wi-Fi Triangulation
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 120000,
           });
-          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
-        } catch (err: any) {
-          console.warn("High-accuracy device geolocation timed out or failed:", err);
-        }
+        });
+        return { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      } catch (err: any) {
+        if (err?.code === 1) throw err;
+        console.warn("High-accuracy geolocation attempt 1 failed, retrying standard accuracy...", err);
       }
 
-      // Network fallback (IP) only when device GPS is unavailable
-      const ipRes = await fetch("/api/geocode").catch(() => null);
-      if (ipRes && ipRes.ok) {
-        const ipData = await ipRes.json().catch(() => null);
-        if (ipData?.latitude && ipData?.longitude) {
-          return { lat: ipData.latitude, lon: ipData.longitude, source: "network" };
-        }
-      }
-
-      return { lat: 22.3811, lon: 91.8482, source: "network" };
+      // Phase 2: Standard Wi-Fi triangulation (matches Google Maps desktop)
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 180000,
+        });
+      });
+      return { lat: pos.coords.latitude, lon: pos.coords.longitude };
     };
 
     try {
@@ -96,11 +98,8 @@ export default function CheckoutPage() {
         throw new Error(data.error || "Could not resolve address");
       }
 
-      const isCoarseNetwork = coords.source === "network";
       let matchedArea = data.area;
-      if (isCoarseNetwork && data.city === "Dhaka" && /old dhaka/i.test(matchedArea)) {
-        matchedArea = "Dhaka";
-      } else if (commerce?.areas && commerce.areas.length > 0) {
+      if (commerce?.areas && commerce.areas.length > 0) {
         const found = commerce.areas.find(
           (a) =>
             a.name.toLowerCase().includes(data.area.toLowerCase()) ||
@@ -114,16 +113,9 @@ export default function CheckoutPage() {
       const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
       const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
 
-      let finalLine1 = existingLine1;
-      if (!isCoarseNetwork) {
-        finalLine1 = data.line1;
-        if (existingLine1 && !existingLine1.includes(data.line1)) {
-          finalLine1 = `${existingLine1}, ${data.line1}`;
-        }
-      } else {
-        if (/shakhari|old dhaka/i.test(existingLine1)) {
-          finalLine1 = "";
-        }
+      let finalLine1 = data.line1;
+      if (existingLine1 && !existingLine1.includes(data.line1)) {
+        finalLine1 = `${existingLine1}, ${data.line1}`;
       }
 
       const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();
@@ -160,7 +152,7 @@ export default function CheckoutPage() {
         const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
         setLocationStatus({
           type: "success",
-          message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });

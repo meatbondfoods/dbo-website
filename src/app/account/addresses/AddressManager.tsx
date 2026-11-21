@@ -375,37 +375,38 @@ export function AddressManager({
     setLocating(true);
     setLocationStatus(null);
 
-    // High-precision GPS & Wi-Fi Triangulation
-    const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
-      if (typeof window !== "undefined" && "geolocation" in navigator) {
-        // High Accuracy Hardware GPS / Wi-Fi Triangulation (15s timeout, 5 min cache)
-        // 15s allows Windows Location Service to finish Wi-Fi AP scan without premature timeout.
-        // maximumAge: 300000 allows using high-accuracy cached fix instantly in Banasree.
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 15000,
-              maximumAge: 300000,
-            });
+    // Live Device Geolocation (Two-phase: High Accuracy GPS -> Standard Wi-Fi Triangulation)
+    const getCoords = async (): Promise<{ lat: number; lon: number }> => {
+      if (typeof window === "undefined" || !("geolocation" in navigator)) {
+        throw new Error("Geolocation is not supported by your browser");
+      }
+
+      // Phase 1: High Accuracy Hardware GPS / Wi-Fi Triangulation
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 120000,
           });
-          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
-        } catch (err: any) {
-          console.warn("High-accuracy device geolocation timed out or failed:", err);
+        });
+        return { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      } catch (err: any) {
+        if (err?.code === 1) {
+          throw err;
         }
+        console.warn("High-accuracy device geolocation timed out, trying standard Wi-Fi network location...", err);
       }
 
-      // Network fallback (IP) only when device GPS is unavailable
-      const ipRes = await fetch("/api/geocode").catch(() => null);
-      if (ipRes && ipRes.ok) {
-        const ipData = await ipRes.json().catch(() => null);
-        if (ipData?.latitude && ipData?.longitude) {
-          return { lat: ipData.latitude, lon: ipData.longitude, source: "network" };
-        }
-      }
-
-      // Default: Chandgaon Hub
-      return { lat: 22.3811, lon: 91.8482, source: "network" };
+      // Phase 2: Standard Wi-Fi triangulation (the exact same method Google Maps uses in desktop Chrome)
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 180000,
+        });
+      });
+      return { lat: pos.coords.latitude, lon: pos.coords.longitude };
     };
 
     try {
@@ -435,32 +436,18 @@ export function AddressManager({
         formDraft.phone ||
         defaultPhone;
 
-      const isCoarseNetwork = coords.source === "network";
-      let finalLine1 = existingLine1;
-      let finalArea = data.area || formDraft.area;
-
-      if (!isCoarseNetwork) {
-        // High-accuracy device GPS / Wi-Fi fix
-        finalLine1 = data.line1 || existingLine1;
-        if (
-          existingLine1 &&
-          !/shakhari|old dhaka|chandgaon hub|near /i.test(existingLine1) &&
-          data.line1 &&
-          !existingLine1.includes(data.line1)
-        ) {
-          finalLine1 = `${existingLine1}, ${data.line1}`;
-        } else if (data.line1) {
-          finalLine1 = data.line1;
-        }
-      } else {
-        // Coarse network IP: do not populate Old Dhaka ISP gateway streets like Shakhari Bazar
-        if (/shakhari|old dhaka/i.test(existingLine1)) {
-          finalLine1 = "";
-        }
-        if (data.city === "Dhaka" && /old dhaka/i.test(finalArea)) {
-          finalArea = "";
-        }
+      let finalLine1 = data.line1 || existingLine1;
+      if (
+        existingLine1 &&
+        !/shakhari|old dhaka|chandgaon hub|near /i.test(existingLine1) &&
+        data.line1 &&
+        !existingLine1.includes(data.line1)
+      ) {
+        finalLine1 = `${existingLine1}, ${data.line1}`;
+      } else if (data.line1) {
+        finalLine1 = data.line1;
       }
+      const finalArea = data.area || formDraft.area;
 
       const isDeliverable =
         data.isDeliverable ??
@@ -502,28 +489,24 @@ export function AddressManager({
       setFormKey((k) => k + 1);
 
       if (!isDeliverable) {
-        const areaLabel =
-          isCoarseNetwork && data.city === "Dhaka" && (!finalArea || /old dhaka/i.test(finalArea))
-            ? "Dhaka (network IP detected)"
-            : `${finalArea || data.area}, ${data.city}`;
         setLocationStatus({
           type: "warning",
-          message: `📍 ${areaLabel} — Currently, delivery is not available in this area.`,
+          message: `📍 ${finalArea || data.area}, ${data.city} — Currently, delivery is not available in this area.`,
           mapsUrl: data.mapsUrl,
           isDeliverable: false,
         });
       } else {
         setLocationStatus({
           type: "success",
-          message: `📍 ${finalArea || data.area}, ${data.city} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${finalArea || data.area}, ${data.city} — ${feeNote}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });
       }
     } catch (err: any) {
-      let msg = "Device location unavailable. Please select your area below or enter address manually.";
+      let msg = "Could not access live device GPS. Please click [📍 Banasree] below or enter your address manually.";
       if (err?.code === 1) {
-        msg = "Location permission is blocked in your browser. Please allow location access or select your area below.";
+        msg = "Location permission is waiting for page reload in Chrome. Please reload the page or click [📍 Banasree] below.";
       }
       setLocationStatus({ type: "error", message: msg });
       if (!editing) setEditing("new");

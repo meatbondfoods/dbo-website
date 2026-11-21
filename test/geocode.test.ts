@@ -37,9 +37,10 @@ test("reverseGeocode formats mapsUrl and returns area, city, and deliverability"
   assert.ok(res.mapsUrl.includes("22.3811"));
   assert.ok(res.mapsUrl.includes("91.8482"));
 
-  // Dhaka coordinates (e.g. Rampura)
-  const dhakaRes = await reverseGeocode(23.7622, 90.4318);
+  // Dhaka coordinates (e.g. Banasree)
+  const dhakaRes = await reverseGeocode(23.762254, 90.431839);
   assert.equal(dhakaRes.city, "Dhaka");
+  assert.equal(dhakaRes.area, "Banasree");
   assert.equal(dhakaRes.isDeliverable, false);
   assert.equal(dhakaRes.isFreeDelivery, false);
   assert.ok(dhakaRes.deliveryMessage?.includes("not available"));
