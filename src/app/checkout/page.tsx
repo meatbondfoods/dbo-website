@@ -60,36 +60,22 @@ export default function CheckoutPage() {
 
     const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
       if (typeof window !== "undefined" && "geolocation" in navigator) {
-        // Pass 1: High Accuracy GPS / Wi-Fi Triangulation FIRST (6.5s timeout, maximumAge: 0)
+        // High Accuracy Hardware GPS / Wi-Fi Triangulation (15s timeout, 5 min cache)
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 6500,
-              maximumAge: 0,
+              timeout: 15000,
+              maximumAge: 300000,
             });
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          // If high accuracy times out or fails (e.g. PC without Wi-Fi), try quick coarse pass
-        }
-
-        // Pass 2: Quick fallback with low accuracy (2.5s timeout)
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 2500,
-              maximumAge: 10000,
-            });
-          });
-          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
-        } catch (err: any) {
-          // Fall through to Pass 3 network fallback
+          console.warn("High-accuracy device geolocation timed out or failed:", err);
         }
       }
 
-      // Pass 3: Automatic Network / IP Location fallback
+      // Network fallback (IP) only when device GPS is unavailable
       const ipRes = await fetch("/api/geocode").catch(() => null);
       if (ipRes && ipRes.ok) {
         const ipData = await ipRes.json().catch(() => null);

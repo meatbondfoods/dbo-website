@@ -11,6 +11,7 @@ export interface GeocodeResult {
   deliveryMessage?: string;
   rawAddress?: string;
   isOutsideChattagram?: boolean;
+  postalCode?: string;
 }
 
 export const CHATTOGRAM_CENTER = { lat: 22.3811, lon: 91.8482 };
@@ -81,7 +82,9 @@ export const CANONICAL_DHAKA_AREAS: Array<{
   { name: "Tejgaon", lat: 23.7597, lon: 90.3925, keywords: ["tejgaon", "tejkunipara", "nabisco", "tibet", "industrial area"] },
   { name: "Mohammadpur", lat: 23.7658, lon: 90.3585, keywords: ["mohammadpur", "lalmatia", "adabor", "japan garden", "town hall"] },
   { name: "Badda", lat: 23.7806, lon: 90.4267, keywords: ["badda", "merul", "middle badda", "south badda", "pragoti sarani"] },
-  { name: "Rampura", lat: 23.7612, lon: 90.4208, keywords: ["rampura", "banasree", "aftabnagar", "bonosree"] },
+  { name: "Banasree", lat: 23.7635, lon: 90.431, keywords: ["banasree", "bonosree", "block a", "block b", "block c", "block d", "block e", "block f", "block g", "block h", "block i", "block j", "block k", "block l", "block m", "main road banasree"] },
+  { name: "Aftabnagar", lat: 23.768, lon: 90.432, keywords: ["aftabnagar", "aftab nagar"] },
+  { name: "Rampura", lat: 23.7612, lon: 90.4208, keywords: ["rampura", "dit road rampura", "rampura bridge", "tv station", "wasa road"] },
   { name: "Khilgaon", lat: 23.7533, lon: 90.4255, keywords: ["khilgaon", "taltola", "goran", "tilpapara"] },
   { name: "Malibagh", lat: 23.748, lon: 90.408, keywords: ["malibagh", "mouchak", "maghbazar", "shantinagar"] },
   { name: "Motijheel", lat: 23.733, lon: 90.4172, keywords: ["motijheel", "dilkusha", "shapla chattar", "paltan", "fakirapool"] },
@@ -186,9 +189,15 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
       if (addr.house_number) streetParts.push(`House ${addr.house_number}`);
       if (addr.building) streetParts.push(addr.building);
       if (addr.road) streetParts.push(addr.road);
-      else if (addr.residential) streetParts.push(addr.residential);
-      else if (addr.quarter) streetParts.push(addr.quarter);
-      else if (addr.neighbourhood) streetParts.push(addr.neighbourhood);
+      if (addr.residential && !streetParts.some((p) => p.toLowerCase().includes(addr.residential.toLowerCase()))) {
+        streetParts.push(addr.residential);
+      }
+      if (addr.quarter && !streetParts.some((p) => p.toLowerCase().includes(addr.quarter.toLowerCase()))) {
+        streetParts.push(addr.quarter);
+      }
+      if (streetParts.length === 0 && addr.neighbourhood) {
+        streetParts.push(addr.neighbourhood);
+      }
 
       let line1 = streetParts.join(", ").trim();
       if (!line1) {
@@ -225,6 +234,7 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
         deliveryMessage,
         rawAddress: data.display_name || undefined,
         isOutsideChattagram,
+        postalCode: addr.postcode || undefined,
       };
     }
   } catch (err) {

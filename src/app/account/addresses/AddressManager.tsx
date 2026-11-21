@@ -65,6 +65,26 @@ const CHATTOGRAM_AREAS = [
   "Patenga",
 ];
 
+const COMMON_DHAKA_AREAS = [
+  "Banasree",
+  "Aftabnagar",
+  "Rampura",
+  "Gulshan",
+  "Banani",
+  "Baridhara",
+  "Bashundhara",
+  "Uttara",
+  "Dhanmondi",
+  "Mirpur",
+  "Mohakhali",
+  "Tejgaon",
+  "Badda",
+  "Khilgaon",
+  "Malibagh",
+  "Motijheel",
+  "Old Dhaka",
+];
+
 const POPULAR_AREAS = [
   "Chandgaon",
   "Bahaddarhat",
@@ -269,39 +289,27 @@ export function AddressManager({
     setLocating(true);
     setLocationStatus(null);
 
-    // Multi-tier position retrieval: Prioritize High-Accuracy Wi-Fi / Hardware GPS first!
+    // High-precision GPS & Wi-Fi Triangulation
     const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
       if (typeof window !== "undefined" && "geolocation" in navigator) {
-        // Pass 1: High Accuracy GPS / Wi-Fi Triangulation FIRST (6.5s timeout, maximumAge: 0)
+        // High Accuracy Hardware GPS / Wi-Fi Triangulation (15s timeout, 5 min cache)
+        // 15s allows Windows Location Service to finish Wi-Fi AP scan without premature timeout.
+        // maximumAge: 300000 allows using high-accuracy cached fix instantly in Banasree.
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 6500,
-              maximumAge: 0,
+              timeout: 15000,
+              maximumAge: 300000,
             });
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          // If high accuracy times out or fails (e.g. PC without Wi-Fi), try quick coarse pass
-        }
-
-        // Pass 2: Quick fallback with low accuracy (2.5s timeout)
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 2500,
-              maximumAge: 10000,
-            });
-          });
-          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
-        } catch (err: any) {
-          // Fall through to Pass 3
+          console.warn("High-accuracy device geolocation timed out or failed:", err);
         }
       }
 
-      // Pass 3: Automatic Network / IP Location fallback
+      // Network fallback (IP) only when device GPS is unavailable
       const ipRes = await fetch("/api/geocode").catch(() => null);
       if (ipRes && ipRes.ok) {
         const ipData = await ipRes.json().catch(() => null);
@@ -341,9 +349,16 @@ export function AddressManager({
         formDraft.phone ||
         defaultPhone;
 
-      let finalLine1 = data.line1 || "";
-      if (existingLine1 && !existingLine1.includes(data.line1)) {
+      let finalLine1 = data.line1 || existingLine1;
+      if (
+        existingLine1 &&
+        !/shakhari|old dhaka|chandgaon hub|near /i.test(existingLine1) &&
+        data.line1 &&
+        !existingLine1.includes(data.line1)
+      ) {
         finalLine1 = `${existingLine1}, ${data.line1}`;
+      } else if (data.line1) {
+        finalLine1 = data.line1;
       }
 
       const isDeliverable =
@@ -374,7 +389,7 @@ export function AddressManager({
         line1: finalLine1,
         area: data.area || formDraft.area,
         city: data.city || "Chattagram",
-        postalCode: formDraft.postalCode || "",
+        postalCode: data.postalCode || formDraft.postalCode || "",
         instructions: existingNotes,
         isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
       });
@@ -723,14 +738,17 @@ export function AddressManager({
                   label="Area"
                   name="area"
                   required
-                  list="ctg-areas"
-                  placeholder="e.g. Chandgaon"
+                  list="suggested-areas"
+                  placeholder="e.g. Chandgaon or Banasree"
                   defaultValue={formDraft.area}
                   error={fe.area?.[0]}
                 />
-                <datalist id="ctg-areas">
+                <datalist id="suggested-areas">
                   {CHATTOGRAM_AREAS.map((a) => (
-                    <option key={a} value={a} />
+                    <option key={`ctg-${a}`} value={a} />
+                  ))}
+                  {COMMON_DHAKA_AREAS.map((a) => (
+                    <option key={`dhaka-${a}`} value={a} />
                   ))}
                 </datalist>
               </div>
