@@ -7,12 +7,24 @@ export type PaymentStatus = "unpaid" | "paid" | "failed" | "refunded";   // "pai
 export type PaymentMethod = "cod" | "bkash" | "nagad" | "card";
 export type Availability = "in_stock" | "low_stock" | "out_of_stock";
 
+export type VariantType = "weight" | "piece" | "pack" | "custom";
+
 export interface Category { id: string; slug: string; name: string; description: string; }
-export interface WeightOption { id: string; label: string; grams: number; price: number; }
+export interface WeightOption {
+  id: string;
+  label: string;
+  grams: number;
+  price: number;
+  compareAtPrice?: number;
+  variantType?: VariantType;
+  sku?: string;
+  isAvailable?: boolean;
+}
 export interface Product {
   id: string; slug: string; name: string; categoryId: string; description: string;
   images: string[]; options: WeightOption[]; availability: Availability;
   tags: string[]; rating: number; reviewCount: number; badge?: string; compareAtPrice?: number;
+  storageInstructions?: string; isPublished?: boolean;
 }
 export interface CartLine { productId: string; optionId: string; quantity: number; }
 export interface Address { line1: string; area: string; city: string; notes?: string; }

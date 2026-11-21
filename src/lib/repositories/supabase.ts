@@ -9,7 +9,7 @@ import { DEFAULTS } from "../content/defaults.ts";
 import type { DeliveryConfig } from "../content/schema.ts";
 import { computeHmacSignature } from "../server-hmac.ts";
 import { DEMO_PRODUCTS } from "../demo/data.ts";
-import type { OrderRepository } from "./types.ts";
+import type { CatalogRepository, OrderRepository } from "./types.ts";
 
 interface StoredOrderRecord {
   order: Order;
@@ -42,10 +42,14 @@ function getCommerceConfig(): DeliveryConfig {
 export class SupabaseOrderRepository implements OrderRepository {
   private client: ReturnType<typeof createClient> | null = null;
   private products: Product[] = DEMO_PRODUCTS;
+  private catalogRepo?: CatalogRepository;
 
-  constructor(products?: Product[]) {
+  constructor(products?: Product[], catalogRepo?: CatalogRepository) {
     if (products) {
       this.products = products;
+    }
+    if (catalogRepo) {
+      this.catalogRepo = catalogRepo;
     }
     const isTest = process.env.NODE_ENV === "test" || process.env.npm_lifecycle_event === "test" || process.argv.some((a) => a.includes("test"));
     const url = !isTest ? (process.env.ERP_SUPABASE_URL || "https://baifeezugzfkomjnmfgq.supabase.co") : (process.env.TEST_LIVE_DB === "true" ? "https://baifeezugzfkomjnmfgq.supabase.co" : null);
@@ -84,7 +88,18 @@ export class SupabaseOrderRepository implements OrderRepository {
     }
 
     // 2. Server-side authoritative line pricing and validation
-    const { subtotal } = priceLines(input.lines, this.products);
+    let activeCatalog = this.products;
+    if (this.catalogRepo) {
+      try {
+        const live = await this.catalogRepo.listProducts();
+        if (live && live.length > 0) {
+          activeCatalog = live;
+        }
+      } catch (err) {
+        console.warn("[SupabaseOrderRepository] Error fetching live catalog for pricing:", err);
+      }
+    }
+    const { subtotal } = priceLines(input.lines, activeCatalog);
     const cfg = getCommerceConfig();
     const charge = deliveryCharge(subtotal, areaDistance(input.address.area, cfg), cfg);
     const total = subtotal + charge;
@@ -149,7 +164,7 @@ export class SupabaseOrderRepository implements OrderRepository {
 
         if (!orderError) {
           const itemsToInsert = input.lines.map((l) => {
-            const prod = this.products.find((p) => p.id === l.productId);
+            const prod = activeCatalog.find((p) => p.id === l.productId);
             const opt = prod?.options.find((o) => o.id === l.optionId);
             return {
               web_order_id: order.id,
@@ -199,6 +214,14 @@ export class SupabaseOrderRepository implements OrderRepository {
     const secret = process.env.WEB_ORDER_INTEGRATION_SECRET || "meatbond-secure-integration-key-2026";
     const timestamp = Date.now();
 
+    let activeCatalog = this.products;
+    if (this.catalogRepo) {
+      try {
+        const live = await this.catalogRepo.listProducts();
+        if (live && live.length > 0) activeCatalog = live;
+      } catch {}
+    }
+
     const payload = {
       orderRef: order.reference,
       idempotencyKey: order.idempotencyKey,
@@ -211,7 +234,7 @@ export class SupabaseOrderRepository implements OrderRepository {
       deliveryCharge: order.deliveryCharge,
       total: order.total,
       lines: order.input.lines.map((l) => {
-        const prod = this.products.find((p) => p.id === l.productId);
+        const prod = activeCatalog.find((p) => p.id === l.productId);
         const opt = prod?.options.find((o) => o.id === l.optionId);
         return {
           productId: l.productId,

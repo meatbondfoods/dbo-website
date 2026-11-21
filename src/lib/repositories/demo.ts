@@ -1,9 +1,9 @@
-import { DEMO_CATEGORIES, DEMO_PRODUCTS } from "../demo/data";
-import type { Order, OrderInput, OrderStatus } from "../domain/types";
-import { areaDistance, deliveryCharge, priceLines } from "../pricing";
-import { formatOrderReference, normalizeBdPhone } from "../identity";
-import { getContent } from "../content/store";
-import type { CatalogRepository, OrderRepository } from "./types";
+import { DEMO_CATEGORIES, DEMO_PRODUCTS } from "../demo/data.ts";
+import type { Order, OrderInput, OrderStatus } from "../domain/types.ts";
+import { areaDistance, deliveryCharge, priceLines } from "../pricing.ts";
+import { formatOrderReference, normalizeBdPhone } from "../identity.ts";
+import { getContent } from "../content/store.ts";
+import type { CatalogRepository, OrderRepository } from "./types.ts";
 
 export class DemoCatalogRepository implements CatalogRepository {
   async listCategories() { return DEMO_CATEGORIES; }
