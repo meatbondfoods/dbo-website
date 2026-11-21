@@ -40,7 +40,15 @@ export class DemoOrderRepository implements OrderRepository {
     return orders.find((o) => o.reference === reference && sameNumber(o.input.customer.phone, phone)) ?? null;
   }
   async listOrdersForPhone(phone: string) { return orders.filter((o) => sameNumber(o.input.customer.phone, phone)); }
-  async listForCustomer(customerId: string) { return orders.filter((o) => o.customerId === customerId).reverse(); }
+  async listForCustomer(customerId: string, phone?: string, email?: string) {
+    return orders
+      .filter((o) =>
+        o.customerId === customerId ||
+        (phone && sameNumber(o.input.customer.phone, phone)) ||
+        (email && o.input.customer.email?.toLowerCase() === email.toLowerCase())
+      )
+      .reverse();
+  }
   async listAll() { return [...orders].reverse(); }
 }
 

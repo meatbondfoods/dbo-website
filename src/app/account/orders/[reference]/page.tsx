@@ -12,7 +12,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ re
   const { reference } = await params;
   const user = await requireUser(`/account/orders/${reference}`);
   // Only the signed-in customer's own orders are searched, so another customer's reference is just "not found".
-  const order = (await getRepositories().orders.listForCustomer(user.customerId)).find((o) => o.reference === reference);
+  const order = (await getRepositories().orders.listForCustomer(user.customerId, user.phone, user.email)).find((o) => o.reference === reference);
   if (!order) notFound();
   const { address } = order.input;
   return (

@@ -10,7 +10,7 @@ export default async function AddressesPage() {
   return (
     <div>
       <h1 className="text-3xl">Delivery addresses</h1>
-      <p className="mt-1 text-sm text-ink-soft">Save up to 10 addresses. Delivery charges are confirmed by our team, so none are shown here.</p>
+      <p className="mt-1 text-sm text-ink-soft">Save up to 10 delivery addresses with live GPS location. Free delivery within 7 km of Chandgaon, Chattagram.</p>
       <AddressManager initial={await listAddresses(user)} defaultName={user.fullName} defaultPhone={user.phone} />
     </div>
   );

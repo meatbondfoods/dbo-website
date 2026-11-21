@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AccountHome() {
   const user = await requireUser("/account");
-  const [addresses, orders] = await Promise.all([listAddresses(user), getRepositories().orders.listForCustomer(user.customerId)]);
+  const [addresses, orders] = await Promise.all([
+    listAddresses(user),
+    getRepositories().orders.listForCustomer(user.customerId, user.phone, user.email),
+  ]);
   const def = addresses.find((a) => a.isDefault) ?? addresses[0];
   return (
     <div>

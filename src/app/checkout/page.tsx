@@ -12,6 +12,7 @@ import type { PaymentMethod } from "@/lib/domain/types";
 import { Field, TextArea, TextInput } from "@/components/ui/FormControls";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { trackInitiateCheckout, trackPurchase } from "@/lib/meta-pixel";
+import { MapPin, Loader2, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 
 const PAY: { id: PaymentMethod; label: string; note: string }[] = [
   { id: "cod", label: "Cash on delivery", note: "Pay when your order arrives" },
@@ -39,9 +40,116 @@ export default function CheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fe, setFe] = useState<Record<string, string[]>>({});
+  const [locating, setLocating] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+    mapsUrl?: string;
+  } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   // One key per checkout attempt: a double-click or retry reuses it, so the server never creates two orders.
   const keyRef = useRef<string>(crypto.randomUUID());
   const checkoutTrackedRef = useRef(false);
+
+  const detectLocation = () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus({
+        type: "error",
+        message: "Geolocation is not supported by your browser. Please enter your address manually.",
+      });
+      return;
+    }
+
+    setLocating(true);
+    setLocationStatus(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const res = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
+          const data = await res.json();
+
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || "Could not resolve address");
+          }
+
+          let matchedArea = data.area;
+          if (commerce?.areas && commerce.areas.length > 0) {
+            const found = commerce.areas.find(
+              (a) =>
+                a.name.toLowerCase().includes(data.area.toLowerCase()) ||
+                data.area.toLowerCase().includes(a.name.toLowerCase())
+            );
+            if (found) matchedArea = found.name;
+          }
+          setArea(matchedArea);
+
+          const formEl = formRef.current;
+          const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
+          const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
+
+          let finalLine1 = data.line1;
+          if (existingLine1 && !existingLine1.includes(data.line1)) {
+            finalLine1 = `${existingLine1}, ${data.line1}`;
+          }
+
+          const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();
+          const finalNotes = cleanNotes
+            ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
+            : `📍 GPS Pin: ${data.mapsUrl}`;
+
+          setPre((p) => ({
+            ...p,
+            n: p.n + 1,
+            line1: finalLine1,
+            city: data.city || "Chattagram",
+            notes: finalNotes,
+          }));
+
+          const distInfo =
+            data.distanceKm !== undefined
+              ? ` (${data.distanceKm} km · ${data.isFreeDelivery ? "FREE delivery" : "Delivery: ৳80"})`
+              : "";
+
+          setLocationStatus({
+            type: "success",
+            message: `Detected: ${matchedArea}, ${data.city}${distInfo}. Address & GPS pin auto-filled!`,
+            mapsUrl: data.mapsUrl,
+          });
+        } catch (err) {
+          console.error("Location error:", err);
+          setLocationStatus({
+            type: "error",
+            message: "Unable to find address from GPS. Please enter your address manually.",
+          });
+        } finally {
+          setLocating(false);
+        }
+      },
+      (geoError) => {
+        setLocating(false);
+        let msg = "Could not get your location.";
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          msg = "Location permission denied. Please allow location permissions in your browser or type address manually.";
+        } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
+          msg = "GPS location unavailable on your device. Please enter address manually.";
+        } else if (geoError.code === geoError.TIMEOUT) {
+          msg = "Location request timed out. Please try again or enter address manually.";
+        }
+        setLocationStatus({
+          type: "error",
+          message: msg,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      }
+    );
+  };
 
   useEffect(() => {
     if (checkoutTrackedRef.current || !products || lines.length === 0) return;
@@ -109,6 +217,22 @@ export default function CheckoutPage() {
         currency: "BDT",
       });
 
+      if (me && f.get("saveAddress") === "on") {
+        fetch("/api/account/addresses", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            fullName: get("name"),
+            phone: get("phone"),
+            line1: get("line1"),
+            area,
+            city: get("city"),
+            instructions: (get("notes") || "").slice(0, 300),
+            isDefault: saved.length === 0,
+          }),
+        }).catch(() => {});
+      }
+
       clear();
       router.push(`/order/${data.reference}`);
     } catch { setError("Network problem. Please try again; you won't be charged twice."); }
@@ -119,7 +243,7 @@ export default function CheckoutPage() {
   return (
     <div className="container-page py-10">
       <h1 className="text-3xl sm:text-4xl">Checkout</h1>
-      <form onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_400px]" noValidate>
+      <form ref={formRef} onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_400px]" noValidate>
         <div className="space-y-6">
           <fieldset key={pre.n} className={sec}><legend className="mb-1 text-lg font-bold text-deep">1. Your details</legend>
             {me ? <p className="text-sm text-ink-soft">Signed in as <strong>{me.email}</strong>. This order will appear in your order history.</p> : <p className="text-sm text-ink-soft">Checking out as a guest. <Link href="/login?next=/checkout" className="font-semibold text-brand underline">Sign in</Link> to use saved details and track orders in your account.</p>}
@@ -129,15 +253,89 @@ export default function CheckoutPage() {
               <TextInput label="Email (optional)" name="email" type="email" autoComplete="email" defaultValue={me?.email} />
             </div>
           </fieldset>
-          <fieldset key={`a${pre.n}`} className={sec}><legend className="mb-1 text-lg font-bold text-deep">2. Delivery address</legend>
+          <fieldset key={`a${pre.n}`} className={sec}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-hairline/60 pb-3">
+              <div>
+                <legend className="text-lg font-bold text-deep">2. Delivery address</legend>
+                <p className="text-xs text-ink-soft">Enter where you want your order delivered</p>
+              </div>
+              <button
+                type="button"
+                onClick={detectLocation}
+                disabled={locating}
+                className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-brand/30 bg-mint-light/70 px-3 py-2 text-xs font-semibold text-brand transition-all hover:bg-mint-light hover:border-brand disabled:opacity-60 cursor-pointer shadow-sm"
+                title="Auto-fill address using your device GPS (Daraz style)"
+              >
+                {locating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                    <span>Detecting location…</span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 text-brand" />
+                    <span>Use Current Location (Daraz style)</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {locating && (
+              <div className="flex items-center gap-2 rounded-lg border border-brand/20 bg-mint-light/40 p-3 text-xs text-brand animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                <span>Accessing GPS and finding nearest Chattagram street & area…</span>
+              </div>
+            )}
+
+            {locationStatus && (
+              <div
+                role="status"
+                className={`flex items-start justify-between gap-2 rounded-lg border p-3 text-xs ${
+                  locationStatus.type === "success"
+                    ? "border-brand/30 bg-mint-light text-deep"
+                    : "border-danger/30 bg-danger/5 text-danger"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {locationStatus.type === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-brand" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
+                  )}
+                  <span>{locationStatus.message}</span>
+                </div>
+                {locationStatus.mapsUrl && (
+                  <a
+                    href={locationStatus.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 font-semibold text-brand underline inline-flex items-center gap-1"
+                  >
+                    View pin <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            )}
+
             {saved.length > 0 && <Field label="Use a saved address">{({ id }) => (<select id={id} className="input" defaultValue="" onChange={(e) => { const s = saved.find((x) => x.id === e.target.value); if (s) { setArea(s.area); setPre((p) => ({ n: p.n + 1, fullName: s.fullName, phone: s.phone, line1: s.line1, city: s.city, notes: s.instructions })); } }}><option value="">Choose a saved address</option>{saved.map((s) => <option key={s.id} value={s.id}>{s.fullName}, {s.line1}, {s.area}</option>)}</select>)}</Field>}
             <TextInput label="Address" name="line1" required autoComplete="street-address" placeholder="House, road, block" defaultValue={pre.line1} error={fe.line1?.[0] && "Please enter your street address"} />
             <div className="grid gap-4 sm:grid-cols-2">{commerce.active && commerce.areas.length > 0 ? (
               <Field label="Area" hint="Choose your delivery area">{({ id, describedBy }) => (<select id={id} aria-describedby={describedBy} required value={area} onChange={(e) => setArea(e.target.value)} className="input"><option value="">Choose your area</option>{commerce.areas.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}<option value="Other area">Other area</option></select>)}</Field>
             ) : (
               <TextInput label="Area" name="areaText" required value={area} onChange={(e) => setArea(e.target.value)} />
-            )}<TextInput label="City" name="city" required defaultValue={pre.city ?? "Dhaka"} /></div>
+            )}<TextInput label="City" name="city" required defaultValue={pre.city ?? "Chattagram"} /></div>
             <TextArea label="Delivery notes (optional)" name="notes" rows={2} defaultValue={pre.notes} />
+            {me && (
+              <label className="flex items-center gap-2 text-xs font-medium text-deep cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  name="saveAddress"
+                  defaultChecked
+                  className="h-4 w-4 accent-brand rounded"
+                />
+                Save this delivery address to my account for future orders
+              </label>
+            )}
           </fieldset>
           <fieldset className={sec}><legend className="mb-1 text-lg font-bold text-deep">3. Payment method</legend>
             <div className="grid gap-3 sm:grid-cols-2">

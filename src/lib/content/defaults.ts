@@ -5,7 +5,7 @@ export const DEFAULTS: ContentMap = {
   hero: {
     eyebrow: "MeatBond Foods",
     headline: "Fresh poultry & quality meat, delivered with care.",
-    subheadline: "Premium chicken, processed products and everyday meat from MeatBond Foods, packed to order and delivered chilled across Dhaka.",
+    subheadline: "Premium chicken, processed products and everyday meat from MeatBond Foods, packed to order and delivered chilled across Chattagram.",
     primaryLabel: "Shop now", primaryHref: "/shop",
     secondaryLabel: "Explore products", secondaryHref: "/shop?category=chicken-cuts",
     imagePath: "/products/hero.svg", imageAlt: "Placeholder for the hero photograph of fresh poultry",
@@ -16,20 +16,52 @@ export const DEFAULTS: ContentMap = {
     buttonRadius: "lg", headingWeight: "700",
   },
   site: {
-    announcement: "Cash on delivery available · Chilled delivery across Dhaka",
-    phone: "", email: "", address: "",       // blank until the business confirms real details; nothing is invented
+    announcement: "Free delivery within 7 km in Chattagram · Cash on delivery available",
+    phone: "", email: "", address: "Chandgaon, Chattagram",
     facebook: "", instagram: "", youtube: "",
-    footerBlurb: "Premium meat, poultry and food shopping from MeatBond Foods, packed with care and delivered across Dhaka.",
+    footerBlurb: "Premium meat, poultry and food shopping from MeatBond Foods, packed with care and delivered across Chattagram. Free delivery within 7 km.",
   },
   commerce: {
-    // Delivery pricing and radius are NOT approved by the business. The rules stay configurable but INACTIVE:
-    // no charge is applied and nothing about delivery pricing is promised to customers.
-    active: false, freeRadiusKm: 0, chargeBeyond: 0, freeOverAmount: 0, areas: [],
+    active: true,
+    freeRadiusKm: 7,
+    chargeBeyond: 80,
+    freeOverAmount: 0,
+    areas: [
+      { name: "Chandgaon", distanceKm: 0 },
+      { name: "Bahaddarhat", distanceKm: 1.3 },
+      { name: "Muradpur", distanceKm: 2.0 },
+      { name: "Panchlaish", distanceKm: 2.7 },
+      { name: "Chawkbazar", distanceKm: 2.9 },
+      { name: "Sholashahar", distanceKm: 2.9 },
+      { name: "Nasirabad", distanceKm: 3.4 },
+      { name: "GEC Circle", distanceKm: 3.6 },
+      { name: "Bakalia", distanceKm: 3.7 },
+      { name: "Mehedibag", distanceKm: 3.7 },
+      { name: "Oxygen", distanceKm: 4.0 },
+      { name: "Bayezid", distanceKm: 4.0 },
+      { name: "Khulshi", distanceKm: 4.5 },
+      { name: "Lalkhan Bazar", distanceKm: 4.6 },
+      { name: "Kotwali", distanceKm: 4.8 },
+      { name: "New Market", distanceKm: 5.5 },
+      { name: "Agrabad", distanceKm: 7.2 },
+      { name: "Pahartali", distanceKm: 7.7 },
+      { name: "Halishahar", distanceKm: 9.1 },
+      { name: "Patenga", distanceKm: 12.5 },
+    ],
   },
   productDisplay: { items: [] },
   banners: {
-    // One neutral banner. It makes no delivery-charge or delivery-radius claim (that policy is not approved).
-    items: [{ id: "welcome", title: "Order fresh poultry and meat online", text: "Cash on delivery is available. Our team confirms your order, and your delivery charge, by phone.", ctaLabel: "Start shopping", ctaHref: "/shop", imagePath: "", active: true }],
+    items: [
+      {
+        id: "welcome",
+        title: "Order fresh poultry and meat online",
+        text: "Free chilled delivery within 7 km of Chandgaon, Chattagram. Cash on delivery available.",
+        ctaLabel: "Start shopping",
+        ctaHref: "/shop",
+        imagePath: "",
+        active: true,
+      },
+    ],
   },
   navigation: {
     showCategories: true,

@@ -60,15 +60,19 @@ test("delivery: an unlisted area has unknown distance and is charged", () => {
   assert.equal(areaDistance("  gulshan ", cfg), 4);       // case and whitespace insensitive
 });
 
-test("delivery policy is INACTIVE by default: no charge is applied and nothing is promised", () => {
-  assert.equal(DEFAULTS.commerce.active, false);
-  assert.deepEqual(DEFAULTS.commerce.areas, []);
-  const off = { ...cfg, active: false };
+test("delivery policy: active, free within 7 km, charged beyond", () => {
+  assert.equal(DEFAULTS.commerce.active, true);
+  assert.equal(DEFAULTS.commerce.freeRadiusKm, 7);
+  assert.equal(DEFAULTS.commerce.chargeBeyond, 80);
+  assert.ok(DEFAULTS.commerce.areas.length > 0);
+  assert.equal(deliveryCharge(300, 4, DEFAULTS.commerce), 0);
+  assert.equal(deliveryCharge(300, 7, DEFAULTS.commerce), 0);
+  assert.equal(deliveryCharge(300, 8, DEFAULTS.commerce), 80);
+  const off = { ...DEFAULTS.commerce, active: false };
   assert.equal(deliveryCharge(300, 12, off), 0);                 // inactive: even a far, small order has no website-applied charge
   assert.equal(deliveryCharge(300, null, off), 0);
   assert.equal(deliverySummary(off), "Delivery charge is confirmed by our team");
   assert.match(deliveryNote(off), /not been announced/);
-  for (const s of [deliverySummary(DEFAULTS.commerce), deliveryNote(DEFAULTS.commerce)]) assert.doesNotMatch(s, /৳|km|free/i);
 });
 
 test("delivery summary is generated from the configuration", () => {

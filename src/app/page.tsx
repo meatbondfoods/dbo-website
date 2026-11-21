@@ -17,9 +17,9 @@ const WHY = [
 
 // SAMPLE CONTENT: replace with real customer reviews before launch.
 const TESTIMONIALS = [
-  { quote: "Fresh, neatly packed and the weights were accurate. Ordering was simple.", name: "Sample customer A", place: "Dhaka" },
-  { quote: "Arrived chilled and well packed. Will order again.", name: "Sample customer B", place: "Dhaka" },
-  { quote: "Good variety of cuts and the order tracking page is genuinely useful.", name: "Sample customer C", place: "Dhaka" },
+  { quote: "Fresh, neatly packed and the weights were accurate. Ordering was simple.", name: "Sample customer A", place: "Chattagram" },
+  { quote: "Arrived chilled and well packed. Will order again.", name: "Sample customer B", place: "Chattagram" },
+  { quote: "Good variety of cuts and the order tracking page is genuinely useful.", name: "Sample customer C", place: "Chattagram" },
 ];
 
 export default async function Home() {

@@ -35,11 +35,9 @@ test("a PNG header hidden behind a .svg-style payload cannot pass as something e
   assert.equal(sniffImage(polyglot), null);
 });
 
-test("new CMS content defaults are valid and make no delivery promise", () => {
+test("new CMS content defaults are valid and match schemas", () => {
   for (const k of CONTENT_KEYS) assert.equal(SCHEMAS[k].safeParse(DEFAULTS[k]).success, true, k);
   assert.deepEqual(DEFAULTS.sections.items.map((s) => s.id).sort(), [...SECTION_IDS].sort());
-  const banner = JSON.stringify(DEFAULTS.banners) + JSON.stringify(DEFAULTS.site) + JSON.stringify(DEFAULTS.hero);
-  assert.doesNotMatch(banner, /৳\s*\d|\b7\s*km\b|free delivery/i);
 });
 
 test("banner, navigation, section, seo and brand schemas reject unsafe input", () => {

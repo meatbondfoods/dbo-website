@@ -24,4 +24,5 @@ export interface Order {
   id: string; reference: string; status: OrderStatus; createdAt: string;
   subtotal: number; deliveryCharge: number; total: number; input: OrderInput; idempotencyKey: string;
   paymentStatus: PaymentStatus; deliveryStatus: "calculated" | "to_be_confirmed"; customerId?: string;
+  deliveryDate?: string;
 }

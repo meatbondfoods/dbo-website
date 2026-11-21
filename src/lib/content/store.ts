@@ -1,9 +1,9 @@
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULTS } from "./defaults";
-import { SCHEMAS, type ContentKey, type ContentMap } from "./schema";
-import { checkTheme } from "./contrast";
+import { DEFAULTS } from "./defaults.ts";
+import { SCHEMAS, type ContentKey, type ContentMap } from "./schema.ts";
+import { checkTheme } from "./contrast.ts";
 
 /**
  * Draft / publish content store.

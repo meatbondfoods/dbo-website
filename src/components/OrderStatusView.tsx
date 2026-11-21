@@ -7,7 +7,7 @@ import { taka } from "@/lib/format";
 export interface TrackedOrder {
   reference: string; status: string; createdAt: string; subtotal: number;
   deliveryCharge: number; total: number; lines: CartLine[]; paymentMethod: string;
-  paymentStatus?: string; deliveryStatus?: string;
+  paymentStatus?: string; deliveryStatus?: string; deliveryDate?: string;
 }
 
 const PAY_LABEL: Record<string, string> = { cod: "Cash on delivery", bkash: "bKash", nagad: "Nagad", card: "Card" };
@@ -51,8 +51,28 @@ export function OrderStatusView({ order }: { order: TrackedOrder }) {
       <dl className="mt-4 space-y-1 text-sm">
         <div className="flex justify-between"><dt>Subtotal</dt><dd>{taka(order.subtotal)}</dd></div>
         <div className="flex justify-between"><dt>Delivery</dt><dd>{order.deliveryStatus === "to_be_confirmed" ? "To be confirmed" : order.deliveryCharge ? taka(order.deliveryCharge) : "Free"}</dd></div>
+        {order.deliveryDate ? (
+          <div className="flex justify-between border-t border-hairline pt-2">
+            <dt className="font-medium text-brand">Scheduled Delivery</dt>
+            <dd className="font-semibold text-brand">
+              {new Date(order.deliveryDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+            </dd>
+          </div>
+        ) : null}
         <div className="flex justify-between pt-2 text-base font-semibold"><dt>{order.deliveryStatus === "to_be_confirmed" ? "Total (excluding delivery)" : "Total"}</dt><dd>{taka(order.total)}</dd></div>
-        {order.paymentStatus && <div className="flex justify-between border-t border-hairline pt-2"><dt>Payment</dt><dd data-testid="payment-status">{PAY_LABEL[order.paymentMethod] ?? order.paymentMethod} · <span className="font-semibold">{PAY_STATUS[order.paymentStatus] ?? order.paymentStatus}</span></dd></div>}
+        {order.paymentStatus && (
+          <div className="flex justify-between border-t border-hairline pt-2">
+            <dt>Payment</dt>
+            <dd data-testid="payment-status">
+              {PAY_LABEL[order.paymentMethod] ?? order.paymentMethod} ·{" "}
+              <span className="font-semibold">
+                {order.paymentMethod === "cod" && order.paymentStatus === "unpaid"
+                  ? "Pay upon delivery"
+                  : (PAY_STATUS[order.paymentStatus] ?? order.paymentStatus)}
+              </span>
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

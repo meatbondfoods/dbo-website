@@ -24,7 +24,7 @@ export const PAGES: Record<string, Info> = {
     title: "Frequently asked questions",
     sections: [
       { heading: "How are products kept fresh?", body: ["Products are packed to order and dispatched chilled."] },
-      { heading: "Which areas do you deliver to?", body: ["We currently deliver within Dhaka. See Delivery information for charges and timings."] },
+      { heading: "Which areas do you deliver to?", body: ["We currently deliver within Chattagram. See Delivery information for charges and timings."] },
       { heading: "What payment methods are accepted?", body: ["Cash on delivery is available. Online payment options are planned."] },
       { heading: "Can I change or cancel an order?", body: ["Contact us as soon as possible. Orders can be changed until they are packed."] },
     ],
@@ -33,7 +33,7 @@ export const PAGES: Record<string, Info> = {
     title: "Delivery information",
     sections: [
       { heading: "Charges", body: ["{{DELIVERY_RULE}}"] },
-      { heading: "Timing", body: ["Orders confirmed before noon are delivered the same day within Dhaka. Later orders go out the next morning."] },
+      { heading: "Timing", body: ["Orders confirmed before noon are delivered the same day within Chattagram. Later orders go out the next morning."] },
       { heading: "On arrival", body: ["Orders are delivered chilled. Please refrigerate or freeze products as soon as they arrive."] },
     ],
     notice: "Delivery charges come from the admin-managed delivery settings. The free-delivery radius, charge and area distances are unconfirmed sample values; confirm with operations before launch.",

@@ -11,8 +11,8 @@ export interface OrderRepository {
   createOrder(input: OrderInput, idempotencyKey: string, customerId?: string): Promise<Order>;
   getOrderByReference(reference: string, phone: string): Promise<Order | null>;
   listOrdersForPhone(phone: string): Promise<Order[]>;
-  /** Orders placed by one signed-in customer (never another customer's). */
-  listForCustomer(customerId: string): Promise<Order[]>;
+  /** Orders placed by one signed-in customer (never another customer's). Matches by customerId, phone, or email. */
+  listForCustomer(customerId: string, phone?: string, email?: string): Promise<Order[]>;
   /** Admin/inbox view of every website order. In production this is the ERP order inbox. */
   listAll(): Promise<Order[]>;
 }
