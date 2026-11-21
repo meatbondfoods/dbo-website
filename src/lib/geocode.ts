@@ -7,7 +7,21 @@ export interface GeocodeResult {
   mapsUrl: string;
   distanceKm?: number;
   isFreeDelivery?: boolean;
+  isDeliverable?: boolean;
+  deliveryMessage?: string;
   rawAddress?: string;
+}
+
+export const CHATTOGRAM_CENTER = { lat: 22.3811, lon: 91.8482 };
+export const MAX_CHATTOGRAM_DELIVERY_RADIUS_KM = 35;
+
+export function isChattagram(city?: string, distanceKm?: number): boolean {
+  if (!city) return false;
+  const c = city.trim().toLowerCase();
+  const isCtgCity = c === "chattagram" || c === "chittagong" || c.includes("chatt") || c.includes("chitt");
+  if (!isCtgCity) return false;
+  if (distanceKm !== undefined && distanceKm > MAX_CHATTOGRAM_DELIVERY_RADIUS_KM) return false;
+  return true;
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -190,7 +204,11 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
 
       const distToChandgaon = haversineKm(lat, lon, 22.3811, 91.8482);
       const distanceKm = Math.round(distToChandgaon * 10) / 10;
-      const isFreeDelivery = distanceKm <= 7;
+      const isDeliverable = isChattagram(detectedCity, distanceKm);
+      const isFreeDelivery = isDeliverable && distanceKm <= 7;
+      const deliveryMessage = isDeliverable
+        ? (isFreeDelivery ? "Free delivery within 7 km" : "Delivery: ৳80")
+        : "Delivery is currently unavailable outside Chattagram";
 
       return {
         line1,
@@ -201,6 +219,8 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
         mapsUrl,
         distanceKm,
         isFreeDelivery,
+        isDeliverable,
+        deliveryMessage,
         rawAddress: data.display_name || undefined,
       };
     }
@@ -211,6 +231,11 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
   const fallback = resolveArea(lat, lon, "");
   const distToChandgaonFallback = haversineKm(lat, lon, 22.3811, 91.8482);
   const fallbackDistanceKm = Math.round(distToChandgaonFallback * 10) / 10;
+  const isFallbackDeliverable = isChattagram(fallback.city, fallbackDistanceKm);
+  const isFallbackFree = isFallbackDeliverable && fallbackDistanceKm <= 7;
+  const fallbackDeliveryMessage = isFallbackDeliverable
+    ? (isFallbackFree ? "Free delivery within 7 km" : "Delivery: ৳80")
+    : "Delivery is currently unavailable outside Chattagram";
   return {
     line1: `Location near ${fallback.area}`,
     area: fallback.area,
@@ -219,6 +244,8 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
     longitude: lon,
     mapsUrl,
     distanceKm: fallbackDistanceKm,
-    isFreeDelivery: fallbackDistanceKm <= 7,
+    isFreeDelivery: isFallbackFree,
+    isDeliverable: isFallbackDeliverable,
+    deliveryMessage: fallbackDeliveryMessage,
   };
 }

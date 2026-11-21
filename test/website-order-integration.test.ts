@@ -84,9 +84,9 @@ test("SupabaseOrderRepository checkout persistence and idempotency", async (t) =
       email: "tariq@example.com",
     },
     address: {
-      line1: "House 12, Road 4, Sector 3",
-      area: "Uttara",
-      city: "Dhaka",
+      line1: "Road 3, Chandgaon R/A",
+      area: "Chandgaon",
+      city: "Chattagram",
       notes: "Ring the bell",
     },
     paymentMethod: "cod",

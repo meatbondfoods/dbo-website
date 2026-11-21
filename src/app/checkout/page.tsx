@@ -28,6 +28,7 @@ export default function CheckoutPage() {
   const { products } = useCatalog();
   const commerce = useCommerce();
   const [area, setArea] = useState("");
+  const [city, setCity] = useState("Chattagram");
   const [me, setMe] = useState<{ fullName: string; phone: string; email: string } | null>(null);
   const [saved, setSaved] = useState<{ id: string; fullName: string; phone: string; line1: string; area: string; city: string; instructions: string }[]>([]);
   const [pre, setPre] = useState<{ n: number; fullName?: string; phone?: string; line1?: string; city?: string; notes?: string }>({ n: 0 });
@@ -42,9 +43,10 @@ export default function CheckoutPage() {
   const [fe, setFe] = useState<Record<string, string[]>>({});
   const [locating, setLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState<{
-    type: "success" | "error";
+    type: "success" | "warning" | "error";
     message: string;
     mapsUrl?: string;
+    isDeliverable?: boolean;
   } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   // One key per checkout attempt: a double-click or retry reuses it, so the server never creates two orders.
@@ -100,24 +102,48 @@ export default function CheckoutPage() {
             ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
             : `📍 GPS Pin: ${data.mapsUrl}`;
 
+          const detectedCity = data.city || "Chattagram";
+          setCity(detectedCity);
+
+          const isLocDeliverable =
+            data.isDeliverable ??
+            ((detectedCity.toLowerCase() === "chattagram" || detectedCity.toLowerCase() === "chittagong" || detectedCity.toLowerCase().includes("chatt")) &&
+              (data.distanceKm ?? 0) <= 35);
+
+          let distInfo = "";
+          if (data.distanceKm !== undefined) {
+            if (!isLocDeliverable) {
+              distInfo = ` (${data.distanceKm} km away · Delivery currently not available outside Chattagram)`;
+            } else if (data.isFreeDelivery) {
+              distInfo = ` (${data.distanceKm} km · FREE delivery)`;
+            } else {
+              distInfo = ` (${data.distanceKm} km · Delivery: ৳80)`;
+            }
+          }
+
           setPre((p) => ({
             ...p,
             n: p.n + 1,
             line1: finalLine1,
-            city: data.city || "Chattagram",
+            city: detectedCity,
             notes: finalNotes,
           }));
 
-          const distInfo =
-            data.distanceKm !== undefined
-              ? ` (${data.distanceKm} km · ${data.isFreeDelivery ? "FREE delivery" : "Delivery: ৳80"})`
-              : "";
-
-          setLocationStatus({
-            type: "success",
-            message: `Detected: ${matchedArea}, ${data.city}${distInfo}. Address & GPS pin auto-filled!`,
-            mapsUrl: data.mapsUrl,
-          });
+          if (!isLocDeliverable) {
+            setLocationStatus({
+              type: "warning",
+              message: `Detected: ${matchedArea}, ${detectedCity}${distInfo}. Currently, delivery is not available for this location as our fresh chilled delivery operates exclusively within Chattagram.`,
+              mapsUrl: data.mapsUrl,
+              isDeliverable: false,
+            });
+          } else {
+            setLocationStatus({
+              type: "success",
+              message: `Detected: ${matchedArea}, ${detectedCity}${distInfo}. Address & GPS pin auto-filled!`,
+              mapsUrl: data.mapsUrl,
+              isDeliverable: true,
+            });
+          }
         } catch (err) {
           console.error("Location error:", err);
           setLocationStatus({
@@ -168,10 +194,18 @@ export default function CheckoutPage() {
     return <div className="container-page flex flex-col items-center py-24 text-center"><h1 className="text-3xl">Nothing to check out</h1><p className="mt-2 text-ink-soft">Your cart is empty.</p><ButtonLink href="/shop" className="mt-7 px-8">Browse the shop</ButtonLink></div>;
 
   let totals: { subtotal: number; deliveryCharge: number; total: number };
+  const isCityCtg =
+    !city ||
+    city.trim().toLowerCase() === "chattagram" ||
+    city.trim().toLowerCase() === "chittagong" ||
+    city.trim().toLowerCase().includes("chatt") ||
+    city.trim().toLowerCase().includes("chitt");
+  const isDeliverable = isCityCtg && locationStatus?.isDeliverable !== false;
+
   try {
     const { subtotal } = priceLines(lines, products);
     // Same rule the server applies (the server is authoritative and recomputes from the area name).
-    const charge = deliveryCharge(subtotal, area ? areaDistance(area, commerce) : null, commerce);
+    const charge = isDeliverable ? deliveryCharge(subtotal, area ? areaDistance(area, commerce) : null, commerce) : 0;
     totals = { subtotal, deliveryCharge: charge, total: subtotal + charge };
   } catch (e) {
     return <div className="container-page py-20"><p role="alert" className="font-medium text-danger">{(e as Error).message}.</p><ButtonLink href="/cart" variant="outline" className="mt-5">Back to cart</ButtonLink></div>;
@@ -183,6 +217,10 @@ export default function CheckoutPage() {
     const f = new FormData(e.currentTarget);
     const get = (k: string) => String(f.get(k) ?? "");
     if (!area) { setError("Please choose your delivery area."); return; }
+    if (!isDeliverable) {
+      setError("Currently, delivery is not available for this location. We deliver exclusively within Chattagram.");
+      return;
+    }
     setBusy(true); setError(""); setFe({});
     try {
       const res = await fetch("/api/orders", {
@@ -293,23 +331,29 @@ export default function CheckoutPage() {
                 className={`flex items-start justify-between gap-2 rounded-lg border p-3 text-xs ${
                   locationStatus.type === "success"
                     ? "border-brand/30 bg-mint-light text-deep"
+                    : locationStatus.type === "warning"
+                    ? "border-amber-300 bg-amber-50 text-amber-900"
                     : "border-danger/30 bg-danger/5 text-danger"
                 }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-2">
                   {locationStatus.type === "success" ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-brand" />
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-brand mt-0.5" />
+                  ) : locationStatus.type === "warning" ? (
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                   ) : (
-                    <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
+                    <AlertCircle className="h-4 w-4 shrink-0 text-danger mt-0.5" />
                   )}
-                  <span>{locationStatus.message}</span>
+                  <span className="leading-relaxed">{locationStatus.message}</span>
                 </div>
                 {locationStatus.mapsUrl && (
                   <a
                     href={locationStatus.mapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 font-semibold text-brand underline inline-flex items-center gap-1"
+                    className={`shrink-0 font-semibold underline inline-flex items-center gap-1 ${
+                      locationStatus.type === "warning" ? "text-amber-800" : "text-brand"
+                    }`}
                   >
                     View pin <ExternalLink className="h-3 w-3" />
                   </a>
@@ -317,13 +361,129 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {saved.length > 0 && <Field label="Use a saved address">{({ id }) => (<select id={id} className="input" defaultValue="" onChange={(e) => { const s = saved.find((x) => x.id === e.target.value); if (s) { setArea(s.area); setPre((p) => ({ n: p.n + 1, fullName: s.fullName, phone: s.phone, line1: s.line1, city: s.city, notes: s.instructions })); } }}><option value="">Choose a saved address</option>{saved.map((s) => <option key={s.id} value={s.id}>{s.fullName}, {s.line1}, {s.area}</option>)}</select>)}</Field>}
+            {!isDeliverable && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-amber-950">
+                    Delivery is currently not available for this location
+                  </p>
+                  <p className="text-amber-800 leading-relaxed">
+                    MeatBond Foods currently delivers exclusively within Chattagram to ensure maximum freshness and temperature control. We are unable to accept orders for delivery to {city || "outside Chattagram"} at this time.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {saved.length > 0 && (
+              <Field label="Use a saved address">
+                {({ id }) => (
+                  <select
+                    id={id}
+                    className="input"
+                    defaultValue=""
+                    onChange={(e) => {
+                      const s = saved.find((x) => x.id === e.target.value);
+                      if (s) {
+                        setArea(s.area);
+                        const sCity = s.city || "Chattagram";
+                        setCity(sCity);
+                        const isCtg = sCity.toLowerCase() === "chattagram" || sCity.toLowerCase() === "chittagong" || sCity.toLowerCase().includes("chatt");
+                        if (!isCtg) {
+                          setLocationStatus({
+                            type: "warning",
+                            message: `Selected address is in ${sCity}. Currently, delivery is not available for locations outside Chattagram.`,
+                            isDeliverable: false,
+                          });
+                        } else {
+                          setLocationStatus(null);
+                        }
+                        setPre((p) => ({
+                          n: p.n + 1,
+                          fullName: s.fullName,
+                          phone: s.phone,
+                          line1: s.line1,
+                          city: sCity,
+                          notes: s.instructions,
+                        }));
+                      }
+                    }}
+                  >
+                    <option value="">Choose a saved address</option>
+                    {saved.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.fullName}, {s.line1}, {s.area} ({s.city})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+            )}
             <TextInput label="Address" name="line1" required autoComplete="street-address" placeholder="House, road, block" defaultValue={pre.line1} error={fe.line1?.[0] && "Please enter your street address"} />
-            <div className="grid gap-4 sm:grid-cols-2">{commerce.active && commerce.areas.length > 0 ? (
-              <Field label="Area" hint="Choose your delivery area">{({ id, describedBy }) => (<select id={id} aria-describedby={describedBy} required value={area} onChange={(e) => setArea(e.target.value)} className="input"><option value="">Choose your area</option>{commerce.areas.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}<option value="Other area">Other area</option></select>)}</Field>
-            ) : (
-              <TextInput label="Area" name="areaText" required value={area} onChange={(e) => setArea(e.target.value)} />
-            )}<TextInput label="City" name="city" required defaultValue={pre.city ?? "Chattagram"} /></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {commerce.active && commerce.areas.length > 0 ? (
+                <Field label="Area" hint="Choose your delivery area">
+                  {({ id, describedBy }) => (
+                    <select
+                      id={id}
+                      aria-describedby={describedBy}
+                      required
+                      value={area}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setArea(val);
+                        if (val && val !== "Other area") {
+                          setCity("Chattagram");
+                          if (locationStatus?.isDeliverable === false) {
+                            setLocationStatus(null);
+                          }
+                        }
+                      }}
+                      className="input"
+                    >
+                      <option value="">Choose your area</option>
+                      {commerce.areas.map((a) => (
+                        <option key={a.name} value={a.name}>
+                          {a.name}
+                        </option>
+                      ))}
+                      <option value="Other area">Other area</option>
+                    </select>
+                  )}
+                </Field>
+              ) : (
+                <TextInput
+                  label="Area"
+                  name="areaText"
+                  required
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                />
+              )}
+              <TextInput
+                label="City"
+                name="city"
+                required
+                value={city}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCity(val);
+                  const isCtg =
+                    val.trim().toLowerCase() === "chattagram" ||
+                    val.trim().toLowerCase() === "chittagong" ||
+                    val.trim().toLowerCase().includes("chatt");
+                  if (!isCtg) {
+                    setLocationStatus({
+                      type: "warning",
+                      message: `Currently, delivery is not available for ${val}. MeatBond Foods delivers exclusively within Chattagram.`,
+                      isDeliverable: false,
+                    });
+                  } else if (locationStatus?.isDeliverable === false) {
+                    setLocationStatus(null);
+                  }
+                }}
+              />
+            </div>
             <TextArea label="Delivery notes (optional)" name="notes" rows={2} defaultValue={pre.notes} />
             {me && (
               <label className="flex items-center gap-2 text-xs font-medium text-deep cursor-pointer pt-1">
@@ -356,12 +516,42 @@ export default function CheckoutPage() {
               return <li key={l.productId + l.optionId} className="flex justify-between gap-3"><span>{p.name}<span className="block text-xs text-ink-soft">{o.label} × {l.quantity}</span></span><span className="font-medium">{taka(o.price * l.quantity)}</span></li>; })}
           </ul>
           <dl className="mt-5 space-y-2.5 border-t border-hairline pt-5 text-sm">
-            <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{taka(totals.subtotal)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Delivery</dt><dd>{!commerce.active ? "To be confirmed" : !area ? "Choose your area" : totals.deliveryCharge === 0 ? "Free" : taka(totals.deliveryCharge)}</dd></div>
-            <div className="flex justify-between border-t border-hairline pt-3 text-lg font-bold text-deep"><dt>{commerce.active ? "Total" : "Total (excluding delivery)"}</dt><dd>{taka(totals.total)}</dd></div>
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">Subtotal</dt>
+              <dd>{taka(totals.subtotal)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">Delivery</dt>
+              <dd className={!isDeliverable ? "text-amber-700 font-semibold text-xs" : ""}>
+                {!isDeliverable
+                  ? "Currently unavailable"
+                  : !commerce.active
+                  ? "To be confirmed"
+                  : !area
+                  ? "Choose your area"
+                  : totals.deliveryCharge === 0
+                  ? "Free"
+                  : taka(totals.deliveryCharge)}
+              </dd>
+            </div>
+            <div className="flex justify-between border-t border-hairline pt-3 text-lg font-bold text-deep">
+              <dt>{!isDeliverable ? "Subtotal" : commerce.active ? "Total" : "Total (excluding delivery)"}</dt>
+              <dd>{!isDeliverable ? taka(totals.subtotal) : taka(totals.total)}</dd>
+            </div>
           </dl>
           {error && <p role="alert" className="mt-5 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm font-medium text-danger">{error}</p>}
-          <Button className="mt-6 w-full" disabled={busy}>{busy ? "Placing order…" : `Place order · ${taka(totals.total)}`}</Button>
+          <Button className="mt-6 w-full" disabled={busy || !isDeliverable}>
+            {busy
+              ? "Placing order…"
+              : !isDeliverable
+              ? "Delivery unavailable outside Chattagram"
+              : `Place order · ${taka(totals.total)}`}
+          </Button>
+          {!isDeliverable && (
+            <p className="mt-2.5 text-center text-xs text-amber-700 font-medium leading-relaxed">
+              Delivery is currently available exclusively within Chattagram. Please select an address within Chattagram to proceed.
+            </p>
+          )}
           <p className="mt-3 text-center text-xs text-ink-soft">Prices are re-checked by our server when you place the order.{!commerce.active && " Our team will confirm your delivery charge when confirming your order."}</p>
         </aside>
       </form>

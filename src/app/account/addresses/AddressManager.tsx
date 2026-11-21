@@ -64,9 +64,10 @@ export function AddressManager({
   });
   const [locating, setLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState<{
-    type: "success" | "error";
+    type: "success" | "warning" | "error";
     message: string;
     mapsUrl?: string;
+    isDeliverable?: boolean;
   } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -170,12 +171,21 @@ export function AddressManager({
             ? `${cleanNotes}\n📍 Live GPS Pin: ${data.mapsUrl}`
             : `📍 Live GPS Pin: ${data.mapsUrl}`;
 
-          const distNote =
-            data.distanceKm !== undefined
-              ? ` (${data.distanceKm} km from Chandgaon hub · ${
-                  data.isFreeDelivery ? "FREE delivery zone" : "Delivery: ৳80"
-                })`
-              : "";
+          const isDeliverable =
+            data.isDeliverable ??
+            ((data.city?.toLowerCase() === "chattagram" || data.city?.toLowerCase() === "chittagong") &&
+              (data.distanceKm ?? 0) <= 35);
+
+          let distNote = "";
+          if (data.distanceKm !== undefined) {
+            if (!isDeliverable) {
+              distNote = ` (${data.distanceKm} km from Chandgaon hub · Currently delivery is not available outside Chattagram)`;
+            } else if (data.isFreeDelivery) {
+              distNote = ` (${data.distanceKm} km from Chandgaon hub · FREE delivery zone)`;
+            } else {
+              distNote = ` (${data.distanceKm} km from Chandgaon hub · Delivery: ৳80)`;
+            }
+          }
 
           setFormDraft({
             fullName: existingName,
@@ -193,11 +203,22 @@ export function AddressManager({
           }
 
           setFormKey((k) => k + 1);
-          setLocationStatus({
-            type: "success",
-            message: `📍 Live location detected: ${data.area}, ${data.city}${distNote}. Address and Google Maps GPS pin are ready below. Review and click "Save address".`,
-            mapsUrl: data.mapsUrl,
-          });
+
+          if (!isDeliverable) {
+            setLocationStatus({
+              type: "warning",
+              message: `📍 Live location detected: ${data.area}, ${data.city}${distNote}. Currently, delivery is not available for this location as our chilled delivery service operates exclusively within Chattagram. You may still save this address for your records.`,
+              mapsUrl: data.mapsUrl,
+              isDeliverable: false,
+            });
+          } else {
+            setLocationStatus({
+              type: "success",
+              message: `📍 Live location detected: ${data.area}, ${data.city}${distNote}. Address and Google Maps GPS pin are ready below. Review and click "Save address".`,
+              mapsUrl: data.mapsUrl,
+              isDeliverable: true,
+            });
+          }
         } catch (err) {
           console.error("Geocoding failed:", err);
           setLocationStatus({
@@ -322,23 +343,29 @@ export function AddressManager({
           className={`flex items-start justify-between gap-2 rounded-xl border p-3.5 text-xs ${
             locationStatus.type === "success"
               ? "border-brand/30 bg-mint-light text-deep"
+              : locationStatus.type === "warning"
+              ? "border-amber-300 bg-amber-50 text-amber-900"
               : "border-danger/30 bg-danger/5 text-danger"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             {locationStatus.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-brand" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-brand mt-0.5" />
+            ) : locationStatus.type === "warning" ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
             ) : (
-              <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
+              <AlertCircle className="h-4 w-4 shrink-0 text-danger mt-0.5" />
             )}
-            <span>{locationStatus.message}</span>
+            <span className="leading-relaxed">{locationStatus.message}</span>
           </div>
           {locationStatus.mapsUrl && (
             <a
               href={locationStatus.mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 font-semibold text-brand underline inline-flex items-center gap-1"
+              className={`shrink-0 font-semibold underline inline-flex items-center gap-1 ${
+                locationStatus.type === "warning" ? "text-amber-800 hover:text-amber-950" : "text-brand"
+              }`}
             >
               View pin <ExternalLink className="h-3 w-3" />
             </a>
@@ -463,6 +490,15 @@ export function AddressManager({
             Make this my default address
           </label>
 
+          {formDraft.city && !(formDraft.city.toLowerCase() === "chattagram" || formDraft.city.toLowerCase() === "chittagong" || formDraft.city.toLowerCase().includes("chatt")) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>
+                <strong>Notice:</strong> Currently, delivery is not available for locations outside Chattagram. You may save this address to your account for future reference, but active delivery is limited to Chattagram.
+              </span>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <Button disabled={busy}>{busy ? "Saving…" : "Save address"}</Button>
             <Button
@@ -503,11 +539,18 @@ export function AddressManager({
                     <MapPin size={16} className="text-leaf shrink-0" aria-hidden />
                     {x.fullName}
                   </span>
-                  {x.isDefault && (
-                    <span className="rounded-full bg-mint px-2.5 py-0.5 text-xs font-bold text-deep">
-                      Default
-                    </span>
-                  )}
+                  <div className="flex flex-wrap items-center gap-1.5 justify-end">
+                    {x.isDefault && (
+                      <span className="rounded-full bg-mint px-2.5 py-0.5 text-xs font-bold text-deep">
+                        Default
+                      </span>
+                    )}
+                    {x.city && !(x.city.toLowerCase() === "chattagram" || x.city.toLowerCase() === "chittagong" || x.city.toLowerCase().includes("chatt")) && (
+                      <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 text-xs font-semibold">
+                        Delivery currently not available
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-2 flex-1 text-sm leading-relaxed text-ink">
                   {x.line1}

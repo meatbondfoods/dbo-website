@@ -15,6 +15,20 @@ export async function POST(req: Request) {
   const parsed = orderInputSchema.safeParse(body);
   if (!parsed.success) return apiError("Invalid order", 422, parsed.error.flatten());
 
+  const orderCity = (parsed.data.address.city || "").trim().toLowerCase();
+  const isCtg =
+    !orderCity ||
+    orderCity === "chattagram" ||
+    orderCity === "chittagong" ||
+    orderCity.includes("chatt") ||
+    orderCity.includes("chitt");
+  if (!isCtg) {
+    return apiError(
+      "Currently, delivery is not available for this location. MeatBond Foods operates exclusively within Chattagram.",
+      422
+    );
+  }
+
   try {
     // Only product/option ids and quantities are used; any client-sent price is ignored.
     // If a customer is signed in, the order is linked to THEM from the verified session (never from the request body).
