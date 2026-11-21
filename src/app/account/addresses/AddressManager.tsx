@@ -284,8 +284,7 @@ export function AddressManager({
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          // If user clicked "Block/Deny", do not retry GPS hardware
-          if (err?.code === 1) throw err;
+          // Try high accuracy pass
         }
 
         // Pass 2: High accuracy retry with a reasonable 4s timeout
@@ -299,7 +298,7 @@ export function AddressManager({
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          if (err?.code === 1) throw err;
+          // Fall through to Pass 3 network fallback
         }
       }
 

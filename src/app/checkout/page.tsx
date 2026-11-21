@@ -70,7 +70,7 @@ export default function CheckoutPage() {
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          if (err?.code === 1) throw err;
+          // Try high accuracy pass
         }
 
         // Pass 2: High accuracy retry with 4s timeout
@@ -84,7 +84,7 @@ export default function CheckoutPage() {
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          if (err?.code === 1) throw err;
+          // Fall through to Pass 3 network fallback
         }
       }
 
