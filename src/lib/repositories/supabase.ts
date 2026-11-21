@@ -8,6 +8,7 @@ import { formatOrderReference, normalizeBdPhone } from "../identity.ts";
 import { DEFAULTS } from "../content/defaults.ts";
 import type { DeliveryConfig } from "../content/schema.ts";
 import { computeHmacSignature } from "../server-hmac.ts";
+import { loadSigningKeys, SyncConfigError } from "../sync-config.ts";
 import { DEMO_PRODUCTS } from "../demo/data.ts";
 import type { CatalogRepository, OrderRepository } from "./types.ts";
 
@@ -39,6 +40,21 @@ function getCommerceConfig(): DeliveryConfig {
   return DEFAULTS.commerce;
 }
 
+/**
+ * The website uses its OWN Supabase project only. It must never hold the ERP's URL or keys: the ERP
+ * is reached only through the signed order API. Returns null when the website database is not
+ * configured (orders then stay in the local fallback store).
+ */
+export function resolveWebsiteDb(env: Record<string, string | undefined>, isTest: boolean): { url: string; key: string } | null {
+  if (isTest) return null;
+  const url = env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL || "";
+  const key = env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (url.includes("baifeezugzfkomjnmfgq")) {
+    throw new Error("Refusing to start: the website is configured with the ERP's Supabase project.");
+  }
+  return url && key ? { url, key } : null;
+}
+
 export class SupabaseOrderRepository implements OrderRepository {
   private client: ReturnType<typeof createClient> | null = null;
   private products: Product[] = DEMO_PRODUCTS;
@@ -52,8 +68,9 @@ export class SupabaseOrderRepository implements OrderRepository {
       this.catalogRepo = catalogRepo;
     }
     const isTest = process.env.NODE_ENV === "test" || process.env.npm_lifecycle_event === "test" || process.argv.some((a) => a.includes("test"));
-    const url = !isTest ? (process.env.ERP_SUPABASE_URL || "https://baifeezugzfkomjnmfgq.supabase.co") : (process.env.TEST_LIVE_DB === "true" ? "https://baifeezugzfkomjnmfgq.supabase.co" : null);
-    const key = !isTest ? (process.env.ERP_SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "") : (process.env.TEST_LIVE_DB === "true" ? (process.env.ERP_SUPABASE_KEY || "") : null);
+    const resolved = resolveWebsiteDb(process.env, isTest);
+    const url = resolved?.url ?? null;
+    const key = resolved?.key ?? null;
     if (url && key) {
       try {
         this.client = createClient(url, key, {
@@ -87,16 +104,16 @@ export class SupabaseOrderRepository implements OrderRepository {
       return cached.order;
     }
 
-    // 2. Server-side authoritative line pricing and validation
+    // 2. Server-side authoritative line pricing and validation. With a catalog repository (the ERP
+    //    projection) its answer is final: there is no fallback to demo prices, so an empty or
+    //    unreachable catalogue rejects the order instead of selling at invented prices.
     let activeCatalog = this.products;
     if (this.catalogRepo) {
       try {
-        const live = await this.catalogRepo.listProducts();
-        if (live && live.length > 0) {
-          activeCatalog = live;
-        }
+        activeCatalog = await this.catalogRepo.listProducts();
       } catch (err) {
         console.warn("[SupabaseOrderRepository] Error fetching live catalog for pricing:", err);
+        activeCatalog = [];
       }
     }
     const { subtotal } = priceLines(input.lines, activeCatalog);
@@ -211,15 +228,24 @@ export class SupabaseOrderRepository implements OrderRepository {
       (process.env.VERCEL_URL || process.env.NODE_ENV === "production"
         ? "https://meat-bond-foods-erp.vercel.app/api/integrations/web-orders"
         : "http://localhost:3001/api/integrations/web-orders");
-    const secret = process.env.WEB_ORDER_INTEGRATION_SECRET || "meatbond-secure-integration-key-2026";
+    let signingKey;
+    try {
+      signingKey = loadSigningKeys()[0];
+    } catch (err) {
+      // Fail closed: never sign with a default secret. The order stays stored on the website side.
+      console.error("[SupabaseOrderRepository] ERP order integration is not configured:", err instanceof SyncConfigError ? err.message : err);
+      return { success: false, message: "Order integration is not configured" };
+    }
+    const secret = signingKey.secret;
     const timestamp = Date.now();
 
     let activeCatalog = this.products;
     if (this.catalogRepo) {
       try {
-        const live = await this.catalogRepo.listProducts();
-        if (live && live.length > 0) activeCatalog = live;
-      } catch {}
+        activeCatalog = await this.catalogRepo.listProducts();
+      } catch {
+        activeCatalog = [];
+      }
     }
 
     const payload = {
@@ -238,6 +264,9 @@ export class SupabaseOrderRepository implements OrderRepository {
         const opt = prod?.options.find((o) => o.id === l.optionId);
         return {
           productId: l.productId,
+          // The ERP variant id (synced catalog option ids are ERP variant ids); lines without a valid
+          // one are held for staff review by the ERP, never matched by product name.
+          variantId: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(l.optionId) ? l.optionId : undefined,
           optionId: l.optionId,
           productName: prod?.name || "Product",
           grams: opt?.grams || 1000,
@@ -262,6 +291,7 @@ export class SupabaseOrderRepository implements OrderRepository {
             "Content-Type": "application/json",
             "x-meatbond-signature": signature,
             "x-meatbond-timestamp": String(timestamp),
+            "x-meatbond-key-id": signingKey.keyId,
             "x-meatbond-idempotency-key": order.idempotencyKey,
           },
           body: rawBody,

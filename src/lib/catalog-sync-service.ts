@@ -1,229 +1,159 @@
+import crypto from "node:crypto";
 import { z } from "zod";
 import { verifyHmacSignature } from "./server-hmac.ts";
-import {
-  upsertSyncedProduct,
-  removeSyncedProduct,
-  bulkSetSyncedProducts,
-} from "./repositories/supabase-catalog.ts";
-import type { Product, VariantType } from "./domain/types.ts";
+import type { SigningKey } from "./sync-config.ts";
 
-export const variantSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  grams: z.number().nonnegative().default(0),
-  price: z.number().positive(),
-  compareAtPrice: z.number().positive().optional(),
-  variantType: z.enum(["weight", "piece", "pack", "custom"]).default("weight"),
-  sku: z.string().optional(),
-  isAvailable: z.boolean().default(true),
-});
+/**
+ * Receiver for signed ERP catalog events (contract v1, produced by the ERP's sync worker).
+ *
+ * Order of checks, each fail-closed:
+ *   1. HMAC signature over `timestamp.rawBody`, 5-minute replay window, key-id routing
+ *   2. envelope and payload schema
+ *   3. the database applies the event atomically (apply_catalog_event): idempotency by event id,
+ *      conflict on the same id with a different body, stale versions ignored, content and stock
+ *      guarded by separate versions.
+ * No state is kept in memory: the projection and the applied-event ledger live in the database.
+ */
 
-export const productSchema = z.object({
+const availability = z.enum(["in_stock", "low_stock", "out_of_stock"]);
+
+const variantSchema = z
+  .object({
+    id: z.string().min(1),
+    sku: z.string().min(1),
+    label: z.string().min(1),
+    variantType: z.enum(["weight", "piece", "pack", "custom"]),
+    grams: z.number().int().nonnegative(),
+    pieces: z.number().int().positive().optional(),
+    uomFactor: z.number().positive(),
+    price: z.number().positive(),
+    compareAtPrice: z.number().positive().optional(),
+    isAvailable: z.boolean(),
+  })
+  .refine((v) => v.compareAtPrice === undefined || v.compareAtPrice > v.price, { message: "compareAtPrice must exceed price" });
+
+const productSchema = z.object({
   id: z.string().min(1),
-  slug: z.string().min(1),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   name: z.string().min(1),
   categoryId: z.string().min(1),
-  description: z.string().default(""),
+  categoryName: z.string().optional(),
+  description: z.string(),
   storageInstructions: z.string().optional(),
-  images: z.array(z.string()).default([]),
-  options: z.array(variantSchema).min(1),
-  availability: z.enum(["in_stock", "low_stock", "out_of_stock"]).default("in_stock"),
-  tags: z.array(z.string()).default([]),
-  rating: z.number().default(5.0),
-  reviewCount: z.number().default(0),
+  images: z.array(z.string()),
+  variants: z.array(variantSchema).min(1),
+  availability,
+  tags: z.array(z.string()),
   badge: z.string().optional(),
-  compareAtPrice: z.number().positive().optional(),
-  isPublished: z.boolean().default(true),
+  sortOrder: z.number().int(),
+  isPublished: z.literal(true),
 });
 
-export const categorySchema = z.object({
-  id: z.string().min(1),
-  slug: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string().default(""),
-});
+const base = {
+  eventId: z.string().min(16).max(100),
+  schemaVersion: z.literal(1),
+  aggregateId: z.string().min(1),
+  aggregateVersion: z.number().int().nonnegative(),
+  occurredAt: z.string().datetime(),
+};
 
-export const eventSchema = z.object({
-  eventId: z.string().min(1),
-  eventType: z.enum([
-    "catalog.product.upsert",
-    "catalog.product.delete",
-    "catalog.stock.update",
-    "catalog.batch.sync",
-  ]),
-  timestamp: z.number(),
-  payload: z.union([
-    productSchema,
-    z.object({ id: z.string() }),
-    z.object({
-      products: z.array(productSchema),
-      categories: z.array(categorySchema).optional(),
+export const eventSchema = z.discriminatedUnion("eventType", [
+  z.object({ ...base, eventType: z.literal("catalog.product.upsert"), payload: productSchema }),
+  z.object({
+    ...base,
+    eventType: z.literal("catalog.product.unpublish"),
+    payload: z.object({ productId: z.string().min(1), reason: z.enum(["unpublished", "inactive", "no_priced_variant", "no_publication"]) }),
+  }),
+  z.object({
+    ...base,
+    eventType: z.literal("catalog.stock.update"),
+    payload: z.object({
+      productId: z.string().min(1),
+      availability,
+      variants: z.array(z.object({ id: z.string().min(1), isAvailable: z.boolean() })).optional(),
     }),
-    z.object({
-      productId: z.string(),
-      availability: z.enum(["in_stock", "low_stock", "out_of_stock"]),
-    }),
-  ]),
-});
+  }),
+]);
 
 export type CatalogSyncEvent = z.infer<typeof eventSchema>;
 
-const processedEvents = new Set<string>();
+/** The database call that applies an event. A Supabase service client satisfies it. */
+export interface CatalogApplier {
+  rpc(fn: "apply_catalog_event", args: { p_event: unknown; p_body_hash: string }): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+}
 
 export interface SyncHeaders {
   signature?: string | null;
   timestamp?: string | null;
-  idempotencyKey?: string | null;
+  keyId?: string | null;
 }
 
 export interface SyncProcessResult {
   status: number;
-  data: {
-    success?: boolean;
-    error?: string;
-    message?: string;
-    eventId?: string;
-    eventType?: string;
-    timestamp?: number;
-    details?: unknown;
-  };
+  /** True only when this call changed the projection (the route then revalidates caches). */
+  changed: boolean;
+  data: Record<string, unknown>;
+}
+
+function verify(rawBody: string, headers: SyncHeaders, keys: SigningKey[]): { valid: boolean; reason?: string } {
+  const candidates = headers.keyId ? keys.filter((k) => k.keyId === headers.keyId) : keys;
+  if (candidates.length === 0) return { valid: false, reason: "Unknown key id" };
+  let last: string | undefined;
+  for (const k of candidates) {
+    const r = verifyHmacSignature(rawBody, k.secret, headers.timestamp ?? null, headers.signature ?? null);
+    if (r.valid) return r;
+    last = r.reason;
+  }
+  return { valid: false, reason: last };
 }
 
 export async function processCatalogSyncEvent(
   rawBody: string,
   headers: SyncHeaders,
-  secret: string = process.env.WEB_ORDER_INTEGRATION_SECRET || "meatbond-secure-integration-key-2026"
+  deps: { keys: SigningKey[]; db: CatalogApplier },
 ): Promise<SyncProcessResult> {
-  // 1. Verify HMAC Signature and 5-min Replay Tolerance
-  const authResult = verifyHmacSignature(rawBody, secret, headers.timestamp ?? null, headers.signature ?? null);
-  if (!authResult.valid) {
-    return {
-      status: 401,
-      data: { error: `Unauthorized webhook delivery: ${authResult.reason || "Invalid signature"}` },
-    };
-  }
+  const auth = verify(rawBody, headers, deps.keys);
+  if (!auth.valid) return { status: 401, changed: false, data: { error: `Unauthorized: ${auth.reason || "Invalid signature"}` } };
 
-  // 2. Validate Event Envelope
-  let parsedJson: unknown;
+  let json: unknown;
   try {
-    parsedJson = JSON.parse(rawBody);
+    json = JSON.parse(rawBody);
   } catch {
-    return { status: 400, data: { error: "Malformed JSON payload" } };
+    return { status: 400, changed: false, data: { error: "Malformed JSON" } };
+  }
+  const parsed = eventSchema.safeParse(json);
+  if (!parsed.success) return { status: 422, changed: false, data: { error: "Invalid sync event", details: parsed.error.flatten() } };
+  const event = parsed.data;
+
+  // The aggregate id in the envelope must match the payload's product, or one signed event could
+  // be used to write another product's guards.
+  const payloadId = event.eventType === "catalog.product.upsert" ? event.payload.id : event.payload.productId;
+  if (payloadId !== event.aggregateId) {
+    return { status: 422, changed: false, data: { error: "aggregateId does not match the payload product" } };
   }
 
-  const parseResult = eventSchema.safeParse(parsedJson);
-  if (!parseResult.success) {
-    return {
-      status: 422,
-      data: { error: "Invalid sync event schema", details: parseResult.error.flatten() },
-    };
+  // Hash of the exact bytes received: a retry is byte-identical, a tampered replay is not.
+  const bodyHash = crypto.createHash("sha256").update(rawBody).digest("hex");
+  const { data, error } = await deps.db.rpc("apply_catalog_event", { p_event: json, p_body_hash: bodyHash });
+  if (error) {
+    console.error("[catalog-sync] apply_catalog_event failed:", error.message);
+    return { status: 500, changed: false, data: { error: "Could not apply event" } };
   }
 
-  const event = parseResult.data;
-
-  // 3. Idempotency Check
-  const dedupKey = headers.idempotencyKey || event.eventId;
-  if (processedEvents.has(dedupKey)) {
-    return {
-      status: 200,
-      data: { message: "Event already processed", eventId: event.eventId },
-    };
-  }
-  processedEvents.add(dedupKey);
-  if (processedEvents.size > 2000) {
-    const oldest = processedEvents.values().next().value;
-    if (oldest) processedEvents.delete(oldest);
-  }
-
-  // 4. Process Synchronized Projection Event
-  try {
-    if (event.eventType === "catalog.product.upsert") {
-      const p = event.payload as z.infer<typeof productSchema>;
-      const productDomain: Product = {
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        categoryId: p.categoryId,
-        description: p.description,
-        storageInstructions: p.storageInstructions,
-        images: p.images,
-        options: p.options.map((o) => ({
-          id: o.id,
-          label: o.label,
-          grams: o.grams,
-          price: o.price,
-          compareAtPrice: o.compareAtPrice,
-          variantType: o.variantType as VariantType,
-          sku: o.sku,
-          isAvailable: o.isAvailable,
-        })),
-        availability: p.availability,
-        tags: p.tags,
-        rating: p.rating,
-        reviewCount: p.reviewCount,
-        badge: p.badge,
-        compareAtPrice: p.compareAtPrice,
-        isPublished: p.isPublished,
-      };
-
-      upsertSyncedProduct(productDomain);
-    } else if (event.eventType === "catalog.product.delete") {
-      const p = event.payload as { id: string };
-      removeSyncedProduct(p.id);
-    } else if (event.eventType === "catalog.stock.update") {
-      const p = event.payload as { productId: string; availability: "in_stock" | "low_stock" | "out_of_stock" };
-      // Updates stock in memory projection if present
-    } else if (event.eventType === "catalog.batch.sync") {
-      const p = event.payload as {
-        products: Array<z.infer<typeof productSchema>>;
-        categories?: Array<z.infer<typeof categorySchema>>;
-      };
-      const productsDomain: Product[] = p.products.map((item) => ({
-        id: item.id,
-        slug: item.slug,
-        name: item.name,
-        categoryId: item.categoryId,
-        description: item.description,
-        storageInstructions: item.storageInstructions,
-        images: item.images,
-        options: item.options.map((o) => ({
-          id: o.id,
-          label: o.label,
-          grams: o.grams,
-          price: o.price,
-          compareAtPrice: o.compareAtPrice,
-          variantType: o.variantType as VariantType,
-          sku: o.sku,
-          isAvailable: o.isAvailable,
-        })),
-        availability: item.availability,
-        tags: item.tags,
-        rating: item.rating,
-        reviewCount: item.reviewCount,
-        badge: item.badge,
-        compareAtPrice: item.compareAtPrice,
-        isPublished: item.isPublished,
-      }));
-
-      bulkSetSyncedProducts(productsDomain, p.categories);
-    }
-
-    return {
-      status: 200,
-      data: {
-        success: true,
-        eventId: event.eventId,
-        eventType: event.eventType,
-        timestamp: Date.now(),
-      },
-    };
-  } catch (err) {
-    return {
-      status: 500,
-      data: {
-        error: "Failed to apply catalog sync event",
-        details: err instanceof Error ? err.message : String(err),
-      },
-    };
+  const verdict = (data as { status?: string } | null)?.status;
+  switch (verdict) {
+    case "applied":
+      return { status: 200, changed: true, data: { success: true, status: "applied", eventId: event.eventId } };
+    case "stale":
+      // Acknowledged so the ERP stops retrying: a newer version is already applied.
+      return { status: 200, changed: false, data: { success: true, status: "stale", eventId: event.eventId } };
+    case "duplicate":
+      return { status: 200, changed: false, data: { success: true, status: "duplicate", eventId: event.eventId } };
+    case "conflict":
+      return { status: 409, changed: false, data: { error: "Event id already used with a different body" } };
+    case "invalid":
+      return { status: 422, changed: false, data: { error: "Event rejected", reason: (data as { reason?: string }).reason } };
+    default:
+      return { status: 500, changed: false, data: { error: "Unrecognised result from the database" } };
   }
 }

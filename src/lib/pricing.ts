@@ -14,6 +14,7 @@ export function priceLines(lines: CartLine[], products: Product[]) {
     if (product.availability === "out_of_stock") throw new OrderValidationError(`${product.name} is out of stock`);
     const option = product.options.find((o) => o.id === line.optionId);
     if (!option) throw new OrderValidationError(`Invalid size for ${product.name}`);
+    if (option.isAvailable === false) throw new OrderValidationError(`${product.name} (${option.label}) is out of stock`);
     subtotal += option.price * line.quantity;
   }
   return { subtotal };

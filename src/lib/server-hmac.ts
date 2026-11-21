@@ -39,6 +39,12 @@ export function verifyHmacSignature(
     return { valid: false, reason: "Timestamp outside tolerance window (replay protection)" };
   }
 
+  // Strict hex: Buffer.from(..., "hex") stops at the first bad character, which would let a valid
+  // signature with trailing garbage verify.
+  if (!/^[0-9a-f]{64}$/i.test(signature)) {
+    return { valid: false, reason: "Malformed signature" };
+  }
+
   const expectedSignature = computeHmacSignature(rawBody, secret, timestamp);
   const sigBuffer = Buffer.from(signature, "hex");
   const expectedBuffer = Buffer.from(expectedSignature, "hex");

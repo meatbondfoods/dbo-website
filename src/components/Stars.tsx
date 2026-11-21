@@ -1,6 +1,7 @@
 import { Star } from "lucide-react";
 
 export function Stars({ rating, count }: { rating: number; count?: number }) {
+  if (count === 0) return null; // no reviews yet: never show an invented rating
   return (
     <span className="inline-flex items-center gap-1 text-sm text-ink-soft">
       <Star size={15} className="fill-gold text-gold" aria-hidden />
