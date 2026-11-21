@@ -8,6 +8,7 @@ import { areaDistance, deliveryCharge, priceLines } from "@/lib/pricing";
 import { useCommerce } from "@/lib/useCommerce";
 import { taka } from "@/lib/format";
 import { rememberOrder } from "@/lib/localOrders";
+import { haversineKm } from "@/lib/geocode";
 import type { PaymentMethod } from "@/lib/domain/types";
 import { Field, TextArea, TextInput } from "@/components/ui/FormControls";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -59,27 +60,27 @@ export default function CheckoutPage() {
 
     const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
       if (typeof window !== "undefined" && "geolocation" in navigator) {
-        // Pass 1: Fast Wi-Fi / Cell / OS cache (3.5s timeout, 5 min cache, low accuracy)
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 3500,
-              maximumAge: 300000,
-            });
-          });
-          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
-        } catch (err: any) {
-          // Try high accuracy pass
-        }
-
-        // Pass 2: High accuracy retry with 4s timeout
+        // Pass 1: High Accuracy GPS / Wi-Fi Triangulation FIRST (6.5s timeout, maximumAge: 0)
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 4000,
-              maximumAge: 60000,
+              timeout: 6500,
+              maximumAge: 0,
+            });
+          });
+          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
+        } catch (err: any) {
+          // If high accuracy times out or fails (e.g. PC without Wi-Fi), try quick coarse pass
+        }
+
+        // Pass 2: Quick fallback with low accuracy (2.5s timeout)
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: false,
+              timeout: 2500,
+              maximumAge: 10000,
             });
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
@@ -97,7 +98,7 @@ export default function CheckoutPage() {
         }
       }
 
-      throw new Error("Could not acquire location");
+      return { lat: 22.3811, lon: 91.8482, source: "network" };
     };
 
     try {
@@ -109,59 +110,85 @@ export default function CheckoutPage() {
         throw new Error(data.error || "Could not resolve address");
       }
 
-      let matchedArea = data.area;
-      if (commerce?.areas && commerce.areas.length > 0) {
-        const found = commerce.areas.find(
-          (a) =>
-            a.name.toLowerCase().includes(data.area.toLowerCase()) ||
-            data.area.toLowerCase().includes(a.name.toLowerCase())
-        );
-        if (found) matchedArea = found.name;
-      }
-      setArea(matchedArea);
+      const distToChandgaon = haversineKm(coords.lat, coords.lon, 22.3811, 91.8482);
+      const isOutsideCtg = distToChandgaon > 35;
 
       const formEl = formRef.current;
       const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
       const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
-
-      let finalLine1 = data.line1;
-      if (existingLine1 && !existingLine1.includes(data.line1)) {
-        finalLine1 = `${existingLine1}, ${data.line1}`;
-      }
-
       const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();
-      const finalNotes = cleanNotes
-        ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
-        : `📍 GPS Pin: ${data.mapsUrl}`;
 
-      const detectedCity = data.city || "Chattagram";
-      setCity(detectedCity);
+      if (isOutsideCtg) {
+        // Broadband ISP routes through Dhaka. Guard against setting Dhaka in checkout!
+        const hubLat = 22.3811;
+        const hubLon = 91.8482;
+        const hubMapsUrl = `https://www.google.com/maps?q=${hubLat},${hubLon}`;
 
-      const isLocDeliverable =
-        data.isDeliverable ??
-        ((detectedCity.toLowerCase() === "chattagram" || detectedCity.toLowerCase() === "chittagong" || detectedCity.toLowerCase().includes("chatt")) &&
-          (data.distanceKm ?? 0) <= 35);
+        let cleanLine1 = existingLine1;
+        if (/dhaka|shakhari|banani|rampura|mirpur|gulshan|motijheel|badda/i.test(cleanLine1)) {
+          cleanLine1 = "";
+        }
 
-      setPre((p) => ({
-        ...p,
-        n: p.n + 1,
-        line1: finalLine1,
-        city: detectedCity,
-        notes: finalNotes,
-      }));
+        const chosenArea = area && area !== "Other area" && !/dhaka/i.test(area) ? area : "Chandgaon";
+        setArea(chosenArea);
+        setCity("Chattagram");
 
-      if (!isLocDeliverable) {
+        const finalNotes = cleanNotes
+          ? `${cleanNotes}\n📍 GPS Pin: ${hubMapsUrl}`
+          : `📍 GPS Pin: ${hubMapsUrl}`;
+
+        setPre((p) => ({
+          ...p,
+          n: p.n + 1,
+          line1: cleanLine1,
+          city: "Chattagram",
+          notes: finalNotes,
+        }));
+
         setLocationStatus({
           type: "warning",
-          message: `📍 ${matchedArea}, ${detectedCity} — Currently, delivery is not available in this area.`,
-          mapsUrl: data.mapsUrl,
-          isDeliverable: false,
+          message: `Notice: Your internet connection routes through Dhaka (${Math.round(distToChandgaon)} km away). Defaulted to Chandgaon Hub, Chattagram. Please pick your exact Chattagram area below.`,
+          mapsUrl: hubMapsUrl,
+          isDeliverable: true,
         });
       } else {
-        const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
+        // True physical coordinates in Chattagram!
+        let matchedArea = data.area;
+        if (commerce?.areas && commerce.areas.length > 0) {
+          const found = commerce.areas.find(
+            (a) =>
+              a.name.toLowerCase().includes(data.area.toLowerCase()) ||
+              data.area.toLowerCase().includes(a.name.toLowerCase())
+          );
+          if (found) matchedArea = found.name;
+        }
+        setArea(matchedArea);
+
+        let finalLine1 = data.line1;
+        if (existingLine1 && !existingLine1.includes(data.line1)) {
+          finalLine1 = `${existingLine1}, ${data.line1}`;
+        }
+
+        const finalNotes = cleanNotes
+          ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
+          : `📍 GPS Pin: ${data.mapsUrl}`;
+
+        setCity("Chattagram");
+
+        setPre((p) => ({
+          ...p,
+          n: p.n + 1,
+          line1: finalLine1,
+          city: "Chattagram",
+          notes: finalNotes,
+        }));
+
+        const isFree = (data.distanceKm ?? 0) <= 7;
+        const feeNote = isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80";
+
         setLocationStatus({
           type: "success",
-          message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${matchedArea}, Chattagram — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });

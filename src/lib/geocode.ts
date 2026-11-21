@@ -10,6 +10,7 @@ export interface GeocodeResult {
   isDeliverable?: boolean;
   deliveryMessage?: string;
   rawAddress?: string;
+  isOutsideChattagram?: boolean;
 }
 
 export const CHATTOGRAM_CENTER = { lat: 22.3811, lon: 91.8482 };
@@ -204,6 +205,7 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
 
       const distToChandgaon = haversineKm(lat, lon, 22.3811, 91.8482);
       const distanceKm = Math.round(distToChandgaon * 10) / 10;
+      const isOutsideChattagram = distanceKm > MAX_CHATTOGRAM_DELIVERY_RADIUS_KM;
       const isDeliverable = isChattagram(detectedCity, distanceKm);
       const isFreeDelivery = isDeliverable && distanceKm <= 7;
       const deliveryMessage = isDeliverable
@@ -222,6 +224,7 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
         isDeliverable,
         deliveryMessage,
         rawAddress: data.display_name || undefined,
+        isOutsideChattagram,
       };
     }
   } catch (err) {
@@ -231,6 +234,7 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
   const fallback = resolveArea(lat, lon, "");
   const distToChandgaonFallback = haversineKm(lat, lon, 22.3811, 91.8482);
   const fallbackDistanceKm = Math.round(distToChandgaonFallback * 10) / 10;
+  const isFallbackOutside = fallbackDistanceKm > MAX_CHATTOGRAM_DELIVERY_RADIUS_KM;
   const isFallbackDeliverable = isChattagram(fallback.city, fallbackDistanceKm);
   const isFallbackFree = isFallbackDeliverable && fallbackDistanceKm <= 7;
   const fallbackDeliveryMessage = isFallbackDeliverable
@@ -247,5 +251,6 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
     isFreeDelivery: isFallbackFree,
     isDeliverable: isFallbackDeliverable,
     deliveryMessage: fallbackDeliveryMessage,
+    isOutsideChattagram: isFallbackOutside,
   };
 }

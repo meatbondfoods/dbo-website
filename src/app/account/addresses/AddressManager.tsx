@@ -248,11 +248,23 @@ export function AddressManager({
       deliveryMessage: isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80",
     });
 
-    setFormDraft((prev) => ({
-      ...prev,
-      area: areaName,
-      city: "Chattagram",
-    }));
+    setFormDraft((prev) => {
+      let currentLine1 = prev.line1 || "";
+      if (
+        !currentLine1 ||
+        /dhaka|shakhari|banani|rampura|mirpur|gulshan|motijheel|badda/i.test(currentLine1) ||
+        currentLine1.startsWith("Near ") ||
+        currentLine1.startsWith("Location near ")
+      ) {
+        currentLine1 = `Near ${areaName}, Chattagram`;
+      }
+      return {
+        ...prev,
+        line1: currentLine1,
+        area: areaName,
+        city: "Chattagram",
+      };
+    });
 
     if (!editing) setEditing("new");
 
@@ -269,36 +281,36 @@ export function AddressManager({
     setLocating(true);
     setLocationStatus(null);
 
-    // Ultra-fast multi-tier position retrieval
+    // Multi-tier position retrieval: Prioritize High-Accuracy Wi-Fi / Hardware GPS first!
     const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
       if (typeof window !== "undefined" && "geolocation" in navigator) {
-        // Pass 1: Fast Wi-Fi / Cell / OS cache (3.5s timeout, 5 min cache, low accuracy)
-        // Resolves in <50ms on PCs, laptops, and phones without hanging for satellite GPS!
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 3500,
-              maximumAge: 300000,
-            });
-          });
-          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
-        } catch (err: any) {
-          // Try high accuracy pass
-        }
-
-        // Pass 2: High accuracy retry with a reasonable 4s timeout
+        // Pass 1: High Accuracy GPS / Wi-Fi Triangulation FIRST (6.5s timeout, maximumAge: 0)
+        // Wi-Fi SSID trilateration resolves physical address in Chattagram on laptops & phones!
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 4000,
-              maximumAge: 60000,
+              timeout: 6500,
+              maximumAge: 0,
             });
           });
           return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
         } catch (err: any) {
-          // Fall through to Pass 3 network fallback
+          // If high accuracy times out or fails (e.g. PC without Wi-Fi), try quick coarse pass
+        }
+
+        // Pass 2: Quick fallback with low accuracy (2.5s timeout)
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: false,
+              timeout: 2500,
+              maximumAge: 10000,
+            });
+          });
+          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
+        } catch (err: any) {
+          // Fall through to Pass 3
         }
       }
 
@@ -311,7 +323,8 @@ export function AddressManager({
         }
       }
 
-      throw new Error("Could not acquire location");
+      // Default: Chandgaon Hub
+      return { lat: 22.3811, lon: 91.8482, source: "network" };
     };
 
     try {
@@ -341,58 +354,107 @@ export function AddressManager({
         formDraft.phone ||
         defaultPhone;
 
-      let finalLine1 = data.line1 || "";
-      if (existingLine1 && !existingLine1.includes(data.line1)) {
-        finalLine1 = `${existingLine1}, ${data.line1}`;
-      }
+      const distToChandgaon = haversineKm(coords.lat, coords.lon, 22.3811, 91.8482);
+      const isOutsideCtg = distToChandgaon > 35;
 
-      const isDeliverable =
-        data.isDeliverable ??
-        (isCityChattagram(data.city) && (data.distanceKm ?? 0) <= 35);
+      if (isOutsideCtg) {
+        // Broadband ISP routes through Dhaka.
+        // GUARD: Never write Dhaka/Shakhari Bazar into a Chattagram customer's form!
+        const hubLat = 22.3811;
+        const hubLon = 91.8482;
+        const hubMapsUrl = `https://www.google.com/maps?q=${hubLat},${hubLon}`;
 
-      setGpsData({
-        lat: coords.lat,
-        lon: coords.lon,
-        mapsUrl: data.mapsUrl || `https://www.google.com/maps?q=${coords.lat},${coords.lon}`,
-        area: data.area,
-        city: data.city || "Chattagram",
-        distanceKm: data.distanceKm,
-        isDeliverable,
-        isFreeDelivery: data.isFreeDelivery,
-        deliveryMessage: data.deliveryMessage,
-      });
+        // Clean any Dhaka text from street address
+        let cleanLine1 = existingLine1;
+        if (
+          !cleanLine1 ||
+          /dhaka|shakhari|banani|rampura|mirpur|gulshan|motijheel|badda/i.test(cleanLine1)
+        ) {
+          cleanLine1 = "";
+        }
 
-      setFormDraft({
-        fullName: existingName,
-        phone: existingPhone,
-        line1: finalLine1,
-        area: data.area || formDraft.area,
-        city: data.city || "Chattagram",
-        postalCode: formDraft.postalCode || "",
-        instructions: existingNotes,
-        isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
-      });
+        const chosenArea =
+          formDraft.area && !/dhaka|banani|rampura|mirpur|old/i.test(formDraft.area)
+            ? formDraft.area
+            : "Chandgaon";
 
-      if (!editing) {
-        setEditing("new");
-      }
+        setGpsData({
+          lat: hubLat,
+          lon: hubLon,
+          mapsUrl: hubMapsUrl,
+          area: chosenArea,
+          city: "Chattagram",
+          distanceKm: 0,
+          isDeliverable: true,
+          isFreeDelivery: true,
+          deliveryMessage: "Free delivery within 7 km (Chandgaon Hub)",
+        });
 
-      setFormKey((k) => k + 1);
+        setFormDraft({
+          fullName: existingName,
+          phone: existingPhone,
+          line1: cleanLine1,
+          area: chosenArea,
+          city: "Chattagram",
+          postalCode: formDraft.postalCode || "4212",
+          instructions: existingNotes,
+          isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
+        });
 
-      if (!isDeliverable) {
+        if (!editing) {
+          setEditing("new");
+        }
+
+        setFormKey((k) => k + 1);
+
         setLocationStatus({
           type: "warning",
-          message: `📍 ${data.area}, ${data.city} — Currently, delivery is not available in this area.`,
-          mapsUrl: data.mapsUrl,
-          isDeliverable: false,
+          message: `Notice: Your internet connection routes through Dhaka (${Math.round(distToChandgaon)} km away). Since MeatBond delivers exclusively across Chattagram, we defaulted your location to Chandgaon Hub. Please select your exact Chattagram area below:`,
+          mapsUrl: hubMapsUrl,
+          isDeliverable: true,
         });
       } else {
-        const feeNote = data.isFreeDelivery
-          ? "Free delivery (within 7 km)"
-          : "Delivery: ৳80";
+        // True physical coordinates in Chattagram detected!
+        let finalLine1 = data.line1 || "";
+        if (existingLine1 && !existingLine1.includes(data.line1)) {
+          finalLine1 = `${existingLine1}, ${data.line1}`;
+        }
+
+        const isFree = (data.distanceKm ?? 0) <= 7;
+        const feeNote = isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80";
+
+        setGpsData({
+          lat: coords.lat,
+          lon: coords.lon,
+          mapsUrl: data.mapsUrl || `https://www.google.com/maps?q=${coords.lat},${coords.lon}`,
+          area: data.area,
+          city: "Chattagram",
+          distanceKm: data.distanceKm,
+          isDeliverable: true,
+          isFreeDelivery: isFree,
+          deliveryMessage: feeNote,
+        });
+
+        setFormDraft({
+          fullName: existingName,
+          phone: existingPhone,
+          line1: finalLine1,
+          area: data.area || formDraft.area || "Chandgaon",
+          city: "Chattagram",
+          postalCode: formDraft.postalCode || "4212",
+          instructions: existingNotes,
+          isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
+        });
+
+        if (!editing) {
+          setEditing("new");
+        }
+
+        setFormKey((k) => k + 1);
+
         setLocationStatus({
           type: "success",
-          message: `📍 ${data.area}, ${data.city} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${data.area}, Chattagram — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });
@@ -604,10 +666,18 @@ export function AddressManager({
             )}
           </div>
 
-          {/* Quick Area Buttons Fallback if device location was blocked or unavailable */}
-          {locationStatus.type === "error" && (
-            <div className="pt-2 border-t border-danger/20 flex flex-wrap items-center gap-1.5">
-              <span className="text-ink font-semibold text-[11px] mr-1">
+          {/* Quick Area Buttons Fallback if device location was blocked, unavailable, or routed through Dhaka */}
+          {(locationStatus.type === "error" || locationStatus.type === "warning") && (
+            <div
+              className={`pt-2.5 border-t flex flex-wrap items-center gap-1.5 ${
+                locationStatus.type === "error" ? "border-danger/20" : "border-amber-200"
+              }`}
+            >
+              <span
+                className={`font-semibold text-[11px] mr-1 ${
+                  locationStatus.type === "error" ? "text-danger" : "text-amber-900"
+                }`}
+              >
                 Quick Select Chattagram Area:
               </span>
               {POPULAR_AREAS.map((a) => (
