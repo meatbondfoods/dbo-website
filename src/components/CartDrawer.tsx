@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+import { ProductImage } from "@/components/ProductImage";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ShoppingBag, Trash2, X } from "lucide-react";
@@ -69,7 +69,7 @@ export function CartDrawer() {
             <ul className="flex-1 divide-y divide-hairline overflow-y-auto px-5">
               {rows.map(({ l, p, o }) => (
                 <li key={l.productId + l.optionId} className="flex gap-3 py-4">
-                  <Link href={`/product/${p.slug}`} onClick={close} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-hairline"><Image src={p.images[0]} alt={p.name} fill unoptimized className="object-cover" /></Link>
+                  <Link href={`/product/${p.slug}`} onClick={close} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-hairline"><ProductImage src={p.images[0]} alt={p.name} /></Link>
                   <div className="flex min-w-0 flex-1 flex-col justify-between">
                     <div className="flex justify-between gap-2">
                       <div className="min-w-0"><Link href={`/product/${p.slug}`} onClick={close} className="line-clamp-2 text-sm font-semibold text-deep hover:underline">{p.name}</Link><p className="text-xs text-ink-soft">{o.label} · {taka(o.price)}</p></div>

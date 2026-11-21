@@ -90,3 +90,15 @@ test("the website refuses to be configured with the ERP's Supabase project", () 
   assert.throws(() => resolveWebsiteDb({ NEXT_PUBLIC_SUPABASE_URL: "https://baifeezugzfkomjnmfgq.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" }, false), /ERP's Supabase project/);
   assert.throws(() => resolveWebsiteDb({ SUPABASE_URL: "https://baifeezugzfkomjnmfgq.supabase.co" }, false), /ERP's Supabase project/);
 });
+
+import { readFileSync } from "node:fs";
+
+test("no page renders product.images[0] without the placeholder-safe ProductImage component", () => {
+  for (const f of ["src/components/ProductCard.tsx", "src/app/product/[slug]/Gallery.tsx", "src/app/cart/page.tsx", "src/components/CartDrawer.tsx"]) {
+    const src = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+    assert.ok(!/<Image[^>]*images\[/.test(src), `${f} still passes images[...] straight to next/image`);
+    assert.match(src, /ProductImage/);
+  }
+  const comp = readFileSync(new URL("../src/components/ProductImage.tsx", import.meta.url), "utf8");
+  assert.match(comp, /if \(!src\)/);
+});

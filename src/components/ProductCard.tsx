@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+import { ProductImage } from "@/components/ProductImage";
 import Link from "next/link";
 import { useState } from "react";
 import { Check, ShoppingBag } from "lucide-react";
@@ -21,7 +21,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-hairline bg-white shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lift">
       <Link href={href} className="relative block aspect-square overflow-hidden bg-mint-light" aria-label={`${product.name}, view details`} tabIndex={-1}>
-        <Image src={product.images[0]} alt={product.name} fill unoptimized priority={priority} sizes="(min-width:1024px) 25vw, (min-width:640px) 33vw, 50vw"
+        <ProductImage src={product.images[0]} alt={product.name} priority={priority} sizes="(min-width:1024px) 25vw, (min-width:640px) 33vw, 50vw"
           className={`object-cover transition-transform duration-500 group-hover:scale-[1.04] ${soldOut ? "opacity-60 grayscale" : ""}`} />
         {product.badge && <span className="absolute left-3 top-3 rounded-md bg-gold px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-deep">{product.badge}</span>}
       </Link>

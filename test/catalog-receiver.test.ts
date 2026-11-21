@@ -272,3 +272,28 @@ test("migration 104 rolls back (with confirmation) and re-applies cleanly", asyn
   await fresh.exec(mig("104_catalog_projection.sql"));
   assert.equal(((await fresh.query("select count(*)::int n from information_schema.tables where table_name like 'web_catalog_%'")).rows[0] as any).n, 4);
 });
+
+// ── pictures uploaded in the ERP ──────────────────────────────
+
+test("pictures from the ERP are stored in order and reach the storefront; non-https pictures are refused", async () => {
+  await reset();
+  const pics = ["https://proj.supabase.co/storage/v1/object/public/website-images/products/p/main.jpg", "https://proj.supabase.co/storage/v1/object/public/website-images/products/p/second.png"];
+  assert.equal((await send(upsert(1, { images: pics }))).data.status, "applied");
+  const row = (await q("select images from public.web_catalog_products where id = $1", [PID]))[0];
+  assert.deepEqual(row.images, pics);
+  const [product] = await new SupabaseCatalogRepository(anonReadClient()).listProducts();
+  assert.deepEqual(product.images, pics);                      // first = main picture
+
+  for (const bad of ["http://insecure.example/a.jpg", "javascript:alert(1)", "data:image/png;base64,AAAA"]) {
+    assert.equal((await send(upsert(2, { images: [bad] }))).status, 422, bad);
+  }
+  assert.equal((await send(upsert(2, { images: Array.from({ length: 9 }, (_, i) => `https://img.example/${i}.jpg`) }))).status, 422);
+  assert.deepEqual((await q("select images from public.web_catalog_products where id = $1", [PID]))[0].images, pics);   // unchanged
+});
+
+test("a product with no picture yet still reaches the storefront (the ERP sends an empty list)", async () => {
+  await reset();
+  assert.equal((await send(upsert(1, { images: [] }))).data.status, "applied");
+  const [product] = await new SupabaseCatalogRepository(anonReadClient()).listProducts();
+  assert.deepEqual(product.images, []);
+});

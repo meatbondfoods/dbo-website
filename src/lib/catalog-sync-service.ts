@@ -40,7 +40,7 @@ const productSchema = z.object({
   categoryName: z.string().optional(),
   description: z.string(),
   storageInstructions: z.string().optional(),
-  images: z.array(z.string()),
+  images: z.array(z.string().regex(/^https:\/\/\S{4,500}$/)).max(8), // https only: a javascript:/http link never reaches the storefront
   variants: z.array(variantSchema).min(1),
   availability,
   tags: z.array(z.string()),

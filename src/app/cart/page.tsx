@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+import { ProductImage } from "@/components/ProductImage";
 import Link from "next/link";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import { useCart, useHydrated } from "@/store/cart";
@@ -43,7 +43,7 @@ export default function CartPage() {
         <ul className="card divide-y divide-hairline px-5">
           {rows.map(({ l, p, o }) => (
             <li key={l.productId + l.optionId} className="flex gap-4 py-5">
-              <Link href={`/product/${p.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-hairline"><Image src={p.images[0]} alt={p.name} fill unoptimized className="object-cover" /></Link>
+              <Link href={`/product/${p.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-hairline"><ProductImage src={p.images[0]} alt={p.name} /></Link>
               <div className="flex flex-1 flex-col justify-between gap-3">
                 <div className="flex justify-between gap-3">
                   <div><Link href={`/product/${p.slug}`} className="text-base font-semibold text-deep hover:underline">{p.name}</Link><p className="text-sm text-ink-soft">{o.label} · {taka(o.price)} each</p></div>
