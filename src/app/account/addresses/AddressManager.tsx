@@ -248,23 +248,11 @@ export function AddressManager({
       deliveryMessage: isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80",
     });
 
-    setFormDraft((prev) => {
-      let currentLine1 = prev.line1 || "";
-      if (
-        !currentLine1 ||
-        /dhaka|shakhari|banani|rampura|mirpur|gulshan|motijheel|badda/i.test(currentLine1) ||
-        currentLine1.startsWith("Near ") ||
-        currentLine1.startsWith("Location near ")
-      ) {
-        currentLine1 = `Near ${areaName}, Chattagram`;
-      }
-      return {
-        ...prev,
-        line1: currentLine1,
-        area: areaName,
-        city: "Chattagram",
-      };
-    });
+    setFormDraft((prev) => ({
+      ...prev,
+      area: areaName,
+      city: "Chattagram",
+    }));
 
     if (!editing) setEditing("new");
 
@@ -285,7 +273,6 @@ export function AddressManager({
     const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
       if (typeof window !== "undefined" && "geolocation" in navigator) {
         // Pass 1: High Accuracy GPS / Wi-Fi Triangulation FIRST (6.5s timeout, maximumAge: 0)
-        // Wi-Fi SSID trilateration resolves physical address in Chattagram on laptops & phones!
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -354,107 +341,61 @@ export function AddressManager({
         formDraft.phone ||
         defaultPhone;
 
-      const distToChandgaon = haversineKm(coords.lat, coords.lon, 22.3811, 91.8482);
-      const isOutsideCtg = distToChandgaon > 35;
+      let finalLine1 = data.line1 || "";
+      if (existingLine1 && !existingLine1.includes(data.line1)) {
+        finalLine1 = `${existingLine1}, ${data.line1}`;
+      }
 
-      if (isOutsideCtg) {
-        // Broadband ISP routes through Dhaka.
-        // GUARD: Never write Dhaka/Shakhari Bazar into a Chattagram customer's form!
-        const hubLat = 22.3811;
-        const hubLon = 91.8482;
-        const hubMapsUrl = `https://www.google.com/maps?q=${hubLat},${hubLon}`;
+      const isDeliverable =
+        data.isDeliverable ??
+        (isCityChattagram(data.city) && (data.distanceKm ?? 0) <= 35);
 
-        // Clean any Dhaka text from street address
-        let cleanLine1 = existingLine1;
-        if (
-          !cleanLine1 ||
-          /dhaka|shakhari|banani|rampura|mirpur|gulshan|motijheel|badda/i.test(cleanLine1)
-        ) {
-          cleanLine1 = "";
-        }
+      const feeNote = data.isFreeDelivery
+        ? "Free delivery (within 7 km)"
+        : "Delivery: ৳80";
 
-        const chosenArea =
-          formDraft.area && !/dhaka|banani|rampura|mirpur|old/i.test(formDraft.area)
-            ? formDraft.area
-            : "Chandgaon";
+      setGpsData({
+        lat: coords.lat,
+        lon: coords.lon,
+        mapsUrl: data.mapsUrl || `https://www.google.com/maps?q=${coords.lat},${coords.lon}`,
+        area: data.area,
+        city: data.city || "Chattagram",
+        distanceKm: data.distanceKm,
+        isDeliverable,
+        isFreeDelivery: data.isFreeDelivery,
+        deliveryMessage: isDeliverable
+          ? feeNote
+          : "Currently, delivery is not available in this area.",
+      });
 
-        setGpsData({
-          lat: hubLat,
-          lon: hubLon,
-          mapsUrl: hubMapsUrl,
-          area: chosenArea,
-          city: "Chattagram",
-          distanceKm: 0,
-          isDeliverable: true,
-          isFreeDelivery: true,
-          deliveryMessage: "Free delivery within 7 km (Chandgaon Hub)",
-        });
+      setFormDraft({
+        fullName: existingName,
+        phone: existingPhone,
+        line1: finalLine1,
+        area: data.area || formDraft.area,
+        city: data.city || "Chattagram",
+        postalCode: formDraft.postalCode || "",
+        instructions: existingNotes,
+        isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
+      });
 
-        setFormDraft({
-          fullName: existingName,
-          phone: existingPhone,
-          line1: cleanLine1,
-          area: chosenArea,
-          city: "Chattagram",
-          postalCode: formDraft.postalCode || "4212",
-          instructions: existingNotes,
-          isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
-        });
+      if (!editing) {
+        setEditing("new");
+      }
 
-        if (!editing) {
-          setEditing("new");
-        }
+      setFormKey((k) => k + 1);
 
-        setFormKey((k) => k + 1);
-
+      if (!isDeliverable) {
         setLocationStatus({
           type: "warning",
-          message: `Notice: Your internet connection routes through Dhaka (${Math.round(distToChandgaon)} km away). Since MeatBond delivers exclusively across Chattagram, we defaulted your location to Chandgaon Hub. Please select your exact Chattagram area below:`,
-          mapsUrl: hubMapsUrl,
-          isDeliverable: true,
+          message: `📍 ${data.area}, ${data.city} — Currently, delivery is not available in this area.`,
+          mapsUrl: data.mapsUrl,
+          isDeliverable: false,
         });
       } else {
-        // True physical coordinates in Chattagram detected!
-        let finalLine1 = data.line1 || "";
-        if (existingLine1 && !existingLine1.includes(data.line1)) {
-          finalLine1 = `${existingLine1}, ${data.line1}`;
-        }
-
-        const isFree = (data.distanceKm ?? 0) <= 7;
-        const feeNote = isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80";
-
-        setGpsData({
-          lat: coords.lat,
-          lon: coords.lon,
-          mapsUrl: data.mapsUrl || `https://www.google.com/maps?q=${coords.lat},${coords.lon}`,
-          area: data.area,
-          city: "Chattagram",
-          distanceKm: data.distanceKm,
-          isDeliverable: true,
-          isFreeDelivery: isFree,
-          deliveryMessage: feeNote,
-        });
-
-        setFormDraft({
-          fullName: existingName,
-          phone: existingPhone,
-          line1: finalLine1,
-          area: data.area || formDraft.area || "Chandgaon",
-          city: "Chattagram",
-          postalCode: formDraft.postalCode || "4212",
-          instructions: existingNotes,
-          isDefault: editing === "new" ? initial.length === 0 : formDraft.isDefault,
-        });
-
-        if (!editing) {
-          setEditing("new");
-        }
-
-        setFormKey((k) => k + 1);
-
         setLocationStatus({
           type: "success",
-          message: `📍 ${data.area}, Chattagram — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${data.area}, ${data.city} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });
@@ -666,7 +607,7 @@ export function AddressManager({
             )}
           </div>
 
-          {/* Quick Area Buttons Fallback if device location was blocked, unavailable, or routed through Dhaka */}
+          {/* Quick Area Buttons if location is out of delivery area or unavailable */}
           {(locationStatus.type === "error" || locationStatus.type === "warning") && (
             <div
               className={`pt-2.5 border-t flex flex-wrap items-center gap-1.5 ${
@@ -678,7 +619,7 @@ export function AddressManager({
                   locationStatus.type === "error" ? "text-danger" : "text-amber-900"
                 }`}
               >
-                Quick Select Chattagram Area:
+                Delivering to Chattagram? Quick select area:
               </span>
               {POPULAR_AREAS.map((a) => (
                 <button
@@ -980,11 +921,11 @@ export function AddressManager({
 
           {/* Availability warning for non-Chattagram address */}
           {formDraft.city && !isCityChattagram(formDraft.city) && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
-              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-              <div className="leading-relaxed">
-                <strong>Notice:</strong> Currently, delivery is not available in this area (chilled delivery operates exclusively within Chattagram). You may still save this address for your records.
-              </div>
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-center gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+              <span className="font-medium">
+                Currently, delivery is not available in this area.
+              </span>
             </div>
           )}
 

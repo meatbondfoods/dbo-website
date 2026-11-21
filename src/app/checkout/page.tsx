@@ -110,85 +110,61 @@ export default function CheckoutPage() {
         throw new Error(data.error || "Could not resolve address");
       }
 
-      const distToChandgaon = haversineKm(coords.lat, coords.lon, 22.3811, 91.8482);
-      const isOutsideCtg = distToChandgaon > 35;
+      let matchedArea = data.area;
+      if (commerce?.areas && commerce.areas.length > 0) {
+        const found = commerce.areas.find(
+          (a) =>
+            a.name.toLowerCase().includes(data.area.toLowerCase()) ||
+            data.area.toLowerCase().includes(a.name.toLowerCase())
+        );
+        if (found) matchedArea = found.name;
+      }
+      setArea(matchedArea);
 
       const formEl = formRef.current;
       const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
       const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
+
+      let finalLine1 = data.line1;
+      if (existingLine1 && !existingLine1.includes(data.line1)) {
+        finalLine1 = `${existingLine1}, ${data.line1}`;
+      }
+
       const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();
+      const finalNotes = cleanNotes
+        ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
+        : `📍 GPS Pin: ${data.mapsUrl}`;
 
-      if (isOutsideCtg) {
-        // Broadband ISP routes through Dhaka. Guard against setting Dhaka in checkout!
-        const hubLat = 22.3811;
-        const hubLon = 91.8482;
-        const hubMapsUrl = `https://www.google.com/maps?q=${hubLat},${hubLon}`;
+      const detectedCity = data.city || "Chattagram";
+      setCity(detectedCity);
 
-        let cleanLine1 = existingLine1;
-        if (/dhaka|shakhari|banani|rampura|mirpur|gulshan|motijheel|badda/i.test(cleanLine1)) {
-          cleanLine1 = "";
-        }
+      const isLocDeliverable =
+        data.isDeliverable ??
+        ((detectedCity.toLowerCase() === "chattagram" ||
+          detectedCity.toLowerCase() === "chittagong" ||
+          detectedCity.toLowerCase().includes("chatt")) &&
+          (data.distanceKm ?? 0) <= 35);
 
-        const chosenArea = area && area !== "Other area" && !/dhaka/i.test(area) ? area : "Chandgaon";
-        setArea(chosenArea);
-        setCity("Chattagram");
+      setPre((p) => ({
+        ...p,
+        n: p.n + 1,
+        line1: finalLine1,
+        city: detectedCity,
+        notes: finalNotes,
+      }));
 
-        const finalNotes = cleanNotes
-          ? `${cleanNotes}\n📍 GPS Pin: ${hubMapsUrl}`
-          : `📍 GPS Pin: ${hubMapsUrl}`;
-
-        setPre((p) => ({
-          ...p,
-          n: p.n + 1,
-          line1: cleanLine1,
-          city: "Chattagram",
-          notes: finalNotes,
-        }));
-
+      if (!isLocDeliverable) {
         setLocationStatus({
           type: "warning",
-          message: `Notice: Your internet connection routes through Dhaka (${Math.round(distToChandgaon)} km away). Defaulted to Chandgaon Hub, Chattagram. Please pick your exact Chattagram area below.`,
-          mapsUrl: hubMapsUrl,
-          isDeliverable: true,
+          message: `📍 ${matchedArea}, ${detectedCity} — Currently, delivery is not available in this area.`,
+          mapsUrl: data.mapsUrl,
+          isDeliverable: false,
         });
       } else {
-        // True physical coordinates in Chattagram!
-        let matchedArea = data.area;
-        if (commerce?.areas && commerce.areas.length > 0) {
-          const found = commerce.areas.find(
-            (a) =>
-              a.name.toLowerCase().includes(data.area.toLowerCase()) ||
-              data.area.toLowerCase().includes(a.name.toLowerCase())
-          );
-          if (found) matchedArea = found.name;
-        }
-        setArea(matchedArea);
-
-        let finalLine1 = data.line1;
-        if (existingLine1 && !existingLine1.includes(data.line1)) {
-          finalLine1 = `${existingLine1}, ${data.line1}`;
-        }
-
-        const finalNotes = cleanNotes
-          ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
-          : `📍 GPS Pin: ${data.mapsUrl}`;
-
-        setCity("Chattagram");
-
-        setPre((p) => ({
-          ...p,
-          n: p.n + 1,
-          line1: finalLine1,
-          city: "Chattagram",
-          notes: finalNotes,
-        }));
-
-        const isFree = (data.distanceKm ?? 0) <= 7;
-        const feeNote = isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80";
-
+        const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
         setLocationStatus({
           type: "success",
-          message: `📍 ${matchedArea}, Chattagram — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });
@@ -395,7 +371,7 @@ export default function CheckoutPage() {
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-center gap-2.5">
                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
                 <span className="font-medium">
-                  Currently, delivery is not available in this area (available in Chattagram only).
+                  Currently, delivery is not available in this area.
                 </span>
               </div>
             )}
