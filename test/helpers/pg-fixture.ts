@@ -9,12 +9,22 @@ import { uuid_ossp } from "@electric-sql/pglite/contrib/uuid_ossp";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 export const mig = (f: string) => readFileSync(join(root, "supabase/migrations", f), "utf8");
 
-export async function websiteDb(): Promise<PGlite> {
+/** The website's migrations, in order. Nothing outside this project is needed. */
+export const WEBSITE_CHAIN = [
+  "101_web_customers.sql",
+  "103_website_order_inbox.sql",
+  "104_catalog_projection.sql",
+  "105_order_dispatch_queue.sql",
+  "106_customer_tables_rls.sql",
+];
+
+/** An empty database shaped like a hosted Supabase project (API roles + the auth schema). */
+export async function emptyWebsiteDb(): Promise<PGlite> {
   const db = new PGlite({ extensions: { pgcrypto, uuid_ossp } });
   await db.exec(`
     create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
     create schema auth;
-    create table auth.users (id uuid primary key default gen_random_uuid(), email text);
+    create table auth.users (id uuid primary key default gen_random_uuid(), email text, email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
     create function auth.role() returns text language sql stable as $$ select coalesce(nullif(current_setting('test.role', true), ''), 'anon') $$;
     grant usage on schema public to anon, authenticated, service_role;
@@ -22,10 +32,11 @@ export async function websiteDb(): Promise<PGlite> {
     alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
     alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
   `);
-  // 103 references the customers table from the website's earlier drafted migration; only the columns 103 uses are stubbed.
-  await db.exec(`create table public.web_customers (id uuid primary key default gen_random_uuid(), auth_user_id uuid)`);
-  await db.exec(mig("103_website_order_inbox.sql"));
-  await db.exec(mig("104_catalog_projection.sql"));
-  await db.exec(mig("105_order_dispatch_queue.sql"));
+  return db;
+}
+
+export async function websiteDb(): Promise<PGlite> {
+  const db = await emptyWebsiteDb();
+  for (const f of WEBSITE_CHAIN) await db.exec(mig(f));
   return db;
 }
