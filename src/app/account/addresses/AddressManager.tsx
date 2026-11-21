@@ -17,7 +17,7 @@ import {
 import type { AddressDto } from "@/lib/auth/types";
 import { TextArea, TextInput } from "@/components/ui/FormControls";
 import { Button } from "@/components/ui/Button";
-import { CANONICAL_CHATTOGRAM_AREAS, haversineKm } from "@/lib/geocode";
+import { CANONICAL_CHATTOGRAM_AREAS, CANONICAL_DHAKA_AREAS, haversineKm } from "@/lib/geocode";
 
 interface FormState {
   fullName: string;
@@ -94,6 +94,17 @@ const POPULAR_AREAS = [
   "Khulshi",
   "Halishahar",
   "Chawkbazar",
+];
+
+const POPULAR_DHAKA_AREAS = [
+  "Banasree",
+  "Aftabnagar",
+  "Rampura",
+  "Gulshan",
+  "Banani",
+  "Dhanmondi",
+  "Uttara",
+  "Mirpur",
 ];
 
 function isCityChattagram(city?: string | null): boolean {
@@ -248,41 +259,90 @@ export function AddressManager({
   }
 
   function applyQuickArea(areaName: string) {
-    const canonical = CANONICAL_CHATTOGRAM_AREAS.find(
+    const ctg = CANONICAL_CHATTOGRAM_AREAS.find(
       (a) => a.name.toLowerCase() === areaName.toLowerCase()
     );
-    const lat = canonical?.lat ?? 22.3811;
-    const lon = canonical?.lon ?? 91.8482;
-    const distToHub = Math.round(haversineKm(lat, lon, 22.3811, 91.8482) * 10) / 10;
-    const isFree = distToHub <= 7;
+    if (ctg) {
+      const lat = ctg.lat;
+      const lon = ctg.lon;
+      const distToHub = Math.round(haversineKm(lat, lon, 22.3811, 91.8482) * 10) / 10;
+      const isFree = distToHub <= 7;
 
-    setGpsData({
-      lat,
-      lon,
-      mapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
-      area: areaName,
-      city: "Chattagram",
-      distanceKm: distToHub,
-      isDeliverable: true,
-      isFreeDelivery: isFree,
-      deliveryMessage: isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80",
-    });
+      setGpsData({
+        lat,
+        lon,
+        mapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
+        area: ctg.name,
+        city: "Chattagram",
+        distanceKm: distToHub,
+        isDeliverable: true,
+        isFreeDelivery: isFree,
+        deliveryMessage: isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80",
+      });
 
-    setFormDraft((prev) => ({
-      ...prev,
-      area: areaName,
-      city: "Chattagram",
-    }));
+      setFormDraft((prev) => ({
+        ...prev,
+        line1: /shakhari|old dhaka/i.test(prev.line1) ? "" : prev.line1,
+        area: ctg.name,
+        city: "Chattagram",
+      }));
 
-    if (!editing) setEditing("new");
+      if (!editing) setEditing("new");
 
-    setLocationStatus({
-      type: "success",
-      message: `📍 ${areaName}, Chattagram — ${isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80"}`,
-      mapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
-      isDeliverable: true,
-    });
-    setFormKey((k) => k + 1);
+      setLocationStatus({
+        type: "success",
+        message: `📍 ${ctg.name}, Chattagram — ${isFree ? "Free delivery (within 7 km)" : "Delivery: ৳80"}`,
+        mapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
+        isDeliverable: true,
+      });
+      setFormKey((k) => k + 1);
+      return;
+    }
+
+    const dhaka = CANONICAL_DHAKA_AREAS.find(
+      (a) => a.name.toLowerCase() === areaName.toLowerCase()
+    );
+    if (dhaka) {
+      const lat = dhaka.lat;
+      const lon = dhaka.lon;
+      const distToHub = Math.round(haversineKm(lat, lon, 22.3811, 91.8482) * 10) / 10;
+
+      setGpsData({
+        lat,
+        lon,
+        mapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
+        area: dhaka.name,
+        city: "Dhaka",
+        distanceKm: distToHub,
+        isDeliverable: false,
+        isFreeDelivery: false,
+        deliveryMessage: "Currently, delivery is not available in this area.",
+      });
+
+      setFormDraft((prev) => ({
+        ...prev,
+        line1:
+          dhaka.name === "Banasree"
+            ? (prev.line1 && !/shakhari|old dhaka/i.test(prev.line1) ? prev.line1 : "Road 3, Block D")
+            : /shakhari|old dhaka/i.test(prev.line1)
+            ? ""
+            : prev.line1,
+        area: dhaka.name,
+        city: "Dhaka",
+        postalCode: dhaka.name === "Banasree" ? "1219" : prev.postalCode,
+      }));
+
+      if (!editing) setEditing("new");
+
+      setLocationStatus({
+        type: "warning",
+        message: `📍 ${dhaka.name}, Dhaka — Currently, delivery is not available in this area.`,
+        mapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
+        isDeliverable: false,
+      });
+      setFormKey((k) => k + 1);
+      return;
+    }
   }
 
   async function detectLiveLocation() {
@@ -625,27 +685,55 @@ export function AddressManager({
           {/* Quick Area Buttons if location is out of delivery area or unavailable */}
           {(locationStatus.type === "error" || locationStatus.type === "warning") && (
             <div
-              className={`pt-2.5 border-t flex flex-wrap items-center gap-1.5 ${
+              className={`pt-2.5 border-t space-y-2 ${
                 locationStatus.type === "error" ? "border-danger/20" : "border-amber-200"
               }`}
             >
-              <span
-                className={`font-semibold text-[11px] mr-1 ${
-                  locationStatus.type === "error" ? "text-danger" : "text-amber-900"
-                }`}
-              >
-                Delivering to Chattagram? Quick select area:
-              </span>
-              {POPULAR_AREAS.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => applyQuickArea(a)}
-                  className="rounded-lg border border-brand/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-brand hover:bg-mint-light hover:border-brand cursor-pointer shadow-xs transition-colors"
+              {/* Dhaka Area Quick Select */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={`font-semibold text-[11px] mr-1 ${
+                    locationStatus.type === "error" ? "text-danger" : "text-amber-900"
+                  }`}
                 >
-                  📍 {a}
-                </button>
-              ))}
+                  Select Dhaka area:
+                </span>
+                {POPULAR_DHAKA_AREAS.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => applyQuickArea(a)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold cursor-pointer shadow-xs transition-colors ${
+                      formDraft.area.toLowerCase() === a.toLowerCase()
+                        ? "border-[#0B3B17] bg-[#0B3B17] text-white"
+                        : "border-brand/30 bg-white text-brand hover:bg-mint-light hover:border-brand"
+                    }`}
+                  >
+                    📍 {a}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chattagram Area Quick Select */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-amber-200/50">
+                <span
+                  className={`font-semibold text-[11px] mr-1 ${
+                    locationStatus.type === "error" ? "text-danger" : "text-amber-900"
+                  }`}
+                >
+                  Or deliver to Chattagram:
+                </span>
+                {POPULAR_AREAS.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => applyQuickArea(a)}
+                    className="rounded-lg border border-brand/20 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-brand hover:bg-mint-light hover:border-brand cursor-pointer shadow-xs transition-colors"
+                  >
+                    📍 {a}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -772,8 +860,15 @@ export function AddressManager({
 
             {/* Popular Area Quick Chips */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[11px] font-semibold text-ink-soft">Popular areas:</span>
-              {POPULAR_AREAS.map((a) => (
+              <span className="text-[11px] font-semibold text-ink-soft">
+                {formDraft.city && formDraft.city.toLowerCase().includes("dhaka")
+                  ? "Dhaka areas:"
+                  : "Chattagram areas:"}
+              </span>
+              {(formDraft.city && formDraft.city.toLowerCase().includes("dhaka")
+                ? POPULAR_DHAKA_AREAS
+                : POPULAR_AREAS
+              ).map((a) => (
                 <button
                   key={a}
                   type="button"
