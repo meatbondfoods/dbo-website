@@ -26,5 +26,6 @@ export async function websiteDb(): Promise<PGlite> {
   await db.exec(`create table public.web_customers (id uuid primary key default gen_random_uuid(), auth_user_id uuid)`);
   await db.exec(mig("103_website_order_inbox.sql"));
   await db.exec(mig("104_catalog_projection.sql"));
+  await db.exec(mig("105_order_dispatch_queue.sql"));
   return db;
 }

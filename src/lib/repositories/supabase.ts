@@ -8,7 +8,7 @@ import { formatOrderReference, normalizeBdPhone } from "../identity.ts";
 import { DEFAULTS } from "../content/defaults.ts";
 import type { DeliveryConfig } from "../content/schema.ts";
 import { computeHmacSignature } from "../server-hmac.ts";
-import { loadSigningKeys, SyncConfigError } from "../sync-config.ts";
+import { MemoryDispatchStore, PgDispatchStore, runDispatchOnce, type DispatchStore } from "../order-dispatch.ts";
 import { DEMO_PRODUCTS } from "../demo/data.ts";
 import type { CatalogRepository, OrderRepository } from "./types.ts";
 
@@ -20,6 +20,10 @@ interface StoredOrderRecord {
 // Fallback in-memory cache for when Supabase credentials are not configured or in unit test environment
 const g = globalThis as unknown as { __martSupabaseOrders?: Map<string, StoredOrderRecord> };
 const localStore = (g.__martSupabaseOrders ??= new Map<string, StoredOrderRecord>());
+
+// Development/test queue only (not durable). With a configured website database the durable Postgres queue is used.
+const gd = globalThis as unknown as { __martDispatchStore?: MemoryDispatchStore };
+const localDispatchStore = (gd.__martDispatchStore ??= new MemoryDispatchStore());
 
 const sameNumber = (a: string, b: string) => {
   const x = normalizeBdPhone(a);
@@ -59,8 +63,10 @@ export class SupabaseOrderRepository implements OrderRepository {
   private client: ReturnType<typeof createClient> | null = null;
   private products: Product[] = DEMO_PRODUCTS;
   private catalogRepo?: CatalogRepository;
+  private dispatchStore: DispatchStore;
 
-  constructor(products?: Product[], catalogRepo?: CatalogRepository) {
+  constructor(products?: Product[], catalogRepo?: CatalogRepository, dispatchStore?: DispatchStore) {
+    this.dispatchStore = dispatchStore ?? localDispatchStore;
     if (products) {
       this.products = products;
     }
@@ -80,6 +86,7 @@ export class SupabaseOrderRepository implements OrderRepository {
         console.warn("[SupabaseOrderRepository] Could not initialize Supabase client, using resilient fallback:", err);
       }
     }
+    if (!dispatchStore && this.client) this.dispatchStore = new PgDispatchStore(this.client as never);
   }
 
   async createOrder(input: OrderInput, idempotencyKey: string, customerId?: string): Promise<Order> {
@@ -223,22 +230,6 @@ export class SupabaseOrderRepository implements OrderRepository {
    * If ERP is unavailable, logs a warning and does NOT fail customer checkout.
    */
   async dispatchToErp(order: Order): Promise<{ success: boolean; message?: string }> {
-    const erpUrl =
-      process.env.ERP_INTEGRATION_URL ||
-      (process.env.VERCEL_URL || process.env.NODE_ENV === "production"
-        ? "https://meat-bond-foods-erp.vercel.app/api/integrations/web-orders"
-        : "http://localhost:3001/api/integrations/web-orders");
-    let signingKey;
-    try {
-      signingKey = loadSigningKeys()[0];
-    } catch (err) {
-      // Fail closed: never sign with a default secret. The order stays stored on the website side.
-      console.error("[SupabaseOrderRepository] ERP order integration is not configured:", err instanceof SyncConfigError ? err.message : err);
-      return { success: false, message: "Order integration is not configured" };
-    }
-    const secret = signingKey.secret;
-    const timestamp = Date.now();
-
     let activeCatalog = this.products;
     if (this.catalogRepo) {
       try {
@@ -280,36 +271,16 @@ export class SupabaseOrderRepository implements OrderRepository {
       submittedAt: order.createdAt,
     };
 
-    const rawBody = JSON.stringify(payload);
-    const signature = computeHmacSignature(rawBody, secret, timestamp);
-
+    // Queue first (the order is never lost), then make one immediate attempt. If the ERP is down or
+    // not configured, the order stays queued and the dispatch worker keeps retrying it.
+    const store = this.dispatchStore;
     try {
-      if (typeof fetch === "function") {
-        const res = await fetch(erpUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-meatbond-signature": signature,
-            "x-meatbond-timestamp": String(timestamp),
-            "x-meatbond-key-id": signingKey.keyId,
-            "x-meatbond-idempotency-key": order.idempotencyKey,
-          },
-          body: rawBody,
-        });
-
-        if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          console.warn(`[SupabaseOrderRepository] ERP dispatch returned status ${res.status}: ${errText}`);
-          return { success: false, message: `Status ${res.status}` };
-        }
-
-        return { success: true };
-      }
-      return { success: false, message: "Fetch not available in this environment" };
+      await store.enqueue(order.reference, order.idempotencyKey, JSON.stringify(payload));
+      const r = await runDispatchOnce({ store, workerId: "checkout" });
+      return r.sent > 0 ? { success: true } : { success: false, message: "Queued for delivery to the ERP" };
     } catch (err) {
-      // Graceful degradation: do not throw error back to the customer checkout
-      console.warn("[SupabaseOrderRepository] ERP endpoint offline or unreachable:", err instanceof Error ? err.message : err);
-      return { success: false, message: err instanceof Error ? err.message : "Network error" };
+      console.error("[SupabaseOrderRepository] could not queue the order for the ERP:", err instanceof Error ? err.message : err);
+      return { success: false, message: "Could not queue the order for the ERP" };
     }
   }
 

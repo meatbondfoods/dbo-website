@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SupabaseOrderRepository, resolveWebsiteDb } from "../src/lib/repositories/supabase.ts";
 import { verifyHmacSignature } from "../src/lib/server-hmac.ts";
+import { MemoryDispatchStore } from "../src/lib/order-dispatch.ts";
 import type { OrderInput, Product } from "../src/lib/domain/types.ts";
 
 const VARIANT = "22222222-2222-4222-8222-222222222222";
@@ -34,14 +35,14 @@ test("order dispatch fails closed without a secret: nothing is sent, checkout st
   globalThis.fetch = (async () => { calls++; return new Response("{}"); }) as typeof fetch;
   try {
     await withEnv({}, async () => {
-      const repo = new SupabaseOrderRepository([product]);
+      const repo = new SupabaseOrderRepository([product], undefined, new MemoryDispatchStore());
       const order = await repo.createOrder(input, "idem-key-0000000000000001");
       assert.equal(order.subtotal, 940);                       // priced from the catalogue, not the client
       assert.equal(calls, 0);
     });
     // The burned legacy value is refused as well.
     await withEnv({ WEB_ORDER_INTEGRATION_SECRET: ["meatbond", "secure", "integration", "key", "2026"].join("-") }, async () => {
-      await new SupabaseOrderRepository([product]).createOrder(input, "idem-key-0000000000000002");
+      await new SupabaseOrderRepository([product], undefined, new MemoryDispatchStore()).createOrder(input, "idem-key-0000000000000002");
       assert.equal(calls, 0);
     });
   } finally { globalThis.fetch = realFetch; }
@@ -56,7 +57,7 @@ test("order dispatch sends a signed order with the ERP variant id and key id", a
   }) as typeof fetch;
   try {
     await withEnv({ WEB_SYNC_SIGNING_SECRET: SECRET, ERP_INTEGRATION_URL: "https://erp.example.test/api/integrations/web-orders" }, async () => {
-      await new SupabaseOrderRepository([product]).createOrder(input, "idem-key-0000000000000003");
+      await new SupabaseOrderRepository([product], undefined, new MemoryDispatchStore()).createOrder(input, "idem-key-0000000000000003");
     });
   } finally { globalThis.fetch = realFetch; }
   assert.equal(sent.length, 1);
@@ -76,7 +77,7 @@ test("a non-UUID option id (demo catalogue) is sent without a variant id, never 
   const demo: Product = { ...product, options: [{ id: "opt-500g", label: "500 g", grams: 500, price: 470 }] };
   try {
     await withEnv({ WEB_SYNC_SIGNING_SECRET: SECRET, ERP_INTEGRATION_URL: "https://erp.example.test/x" }, async () => {
-      await new SupabaseOrderRepository([demo]).createOrder({ ...input, lines: [{ productId: demo.id, optionId: "opt-500g", quantity: 1 }] } as OrderInput, "idem-key-0000000000000004");
+      await new SupabaseOrderRepository([demo], undefined, new MemoryDispatchStore()).createOrder({ ...input, lines: [{ productId: demo.id, optionId: "opt-500g", quantity: 1 }] } as OrderInput, "idem-key-0000000000000004");
     });
   } finally { globalThis.fetch = realFetch; }
   assert.equal(JSON.parse(body).lines[0].variantId, undefined);
