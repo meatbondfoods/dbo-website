@@ -96,8 +96,11 @@ export default function CheckoutPage() {
         throw new Error(data.error || "Could not resolve address");
       }
 
+      const isCoarseNetwork = coords.source === "network";
       let matchedArea = data.area;
-      if (commerce?.areas && commerce.areas.length > 0) {
+      if (isCoarseNetwork && data.city === "Dhaka" && /old dhaka/i.test(matchedArea)) {
+        matchedArea = "Dhaka";
+      } else if (commerce?.areas && commerce.areas.length > 0) {
         const found = commerce.areas.find(
           (a) =>
             a.name.toLowerCase().includes(data.area.toLowerCase()) ||
@@ -111,9 +114,16 @@ export default function CheckoutPage() {
       const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
       const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
 
-      let finalLine1 = data.line1;
-      if (existingLine1 && !existingLine1.includes(data.line1)) {
-        finalLine1 = `${existingLine1}, ${data.line1}`;
+      let finalLine1 = existingLine1;
+      if (!isCoarseNetwork) {
+        finalLine1 = data.line1;
+        if (existingLine1 && !existingLine1.includes(data.line1)) {
+          finalLine1 = `${existingLine1}, ${data.line1}`;
+        }
+      } else {
+        if (/shakhari|old dhaka/i.test(existingLine1)) {
+          finalLine1 = "";
+        }
       }
 
       const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();

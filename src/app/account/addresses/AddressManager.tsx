@@ -259,6 +259,24 @@ export function AddressManager({
   }
 
   function applyQuickArea(areaName: string) {
+    const formEl = formRef.current;
+    const currentName =
+      (formEl?.elements.namedItem("fullName") as HTMLInputElement)?.value ||
+      formDraft.fullName ||
+      defaultName;
+    const currentPhone =
+      (formEl?.elements.namedItem("phone") as HTMLInputElement)?.value ||
+      formDraft.phone ||
+      defaultPhone;
+    const currentLine1 =
+      (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value ||
+      formDraft.line1 ||
+      "";
+    const currentInstructions =
+      (formEl?.elements.namedItem("instructions") as HTMLTextAreaElement)?.value ||
+      formDraft.instructions ||
+      "";
+
     const ctg = CANONICAL_CHATTOGRAM_AREAS.find(
       (a) => a.name.toLowerCase() === areaName.toLowerCase()
     );
@@ -282,9 +300,12 @@ export function AddressManager({
 
       setFormDraft((prev) => ({
         ...prev,
-        line1: /shakhari|old dhaka/i.test(prev.line1) ? "" : prev.line1,
+        fullName: currentName,
+        phone: currentPhone,
+        line1: /shakhari|old dhaka/i.test(currentLine1) ? "" : currentLine1,
         area: ctg.name,
         city: "Chattagram",
+        instructions: currentInstructions,
       }));
 
       if (!editing) setEditing("new");
@@ -321,15 +342,20 @@ export function AddressManager({
 
       setFormDraft((prev) => ({
         ...prev,
+        fullName: currentName,
+        phone: currentPhone,
         line1:
           dhaka.name === "Banasree"
-            ? (prev.line1 && !/shakhari|old dhaka/i.test(prev.line1) ? prev.line1 : "Road 3, Block D")
-            : /shakhari|old dhaka/i.test(prev.line1)
+            ? (currentLine1 && !/shakhari|old dhaka|near /i.test(currentLine1)
+                ? currentLine1
+                : "Road 3, Block D")
+            : /shakhari|old dhaka/i.test(currentLine1)
             ? ""
-            : prev.line1,
+            : currentLine1,
         area: dhaka.name,
         city: "Dhaka",
         postalCode: dhaka.name === "Banasree" ? "1219" : prev.postalCode,
+        instructions: currentInstructions,
       }));
 
       if (!editing) setEditing("new");
@@ -409,16 +435,31 @@ export function AddressManager({
         formDraft.phone ||
         defaultPhone;
 
-      let finalLine1 = data.line1 || existingLine1;
-      if (
-        existingLine1 &&
-        !/shakhari|old dhaka|chandgaon hub|near /i.test(existingLine1) &&
-        data.line1 &&
-        !existingLine1.includes(data.line1)
-      ) {
-        finalLine1 = `${existingLine1}, ${data.line1}`;
-      } else if (data.line1) {
-        finalLine1 = data.line1;
+      const isCoarseNetwork = coords.source === "network";
+      let finalLine1 = existingLine1;
+      let finalArea = data.area || formDraft.area;
+
+      if (!isCoarseNetwork) {
+        // High-accuracy device GPS / Wi-Fi fix
+        finalLine1 = data.line1 || existingLine1;
+        if (
+          existingLine1 &&
+          !/shakhari|old dhaka|chandgaon hub|near /i.test(existingLine1) &&
+          data.line1 &&
+          !existingLine1.includes(data.line1)
+        ) {
+          finalLine1 = `${existingLine1}, ${data.line1}`;
+        } else if (data.line1) {
+          finalLine1 = data.line1;
+        }
+      } else {
+        // Coarse network IP: do not populate Old Dhaka ISP gateway streets like Shakhari Bazar
+        if (/shakhari|old dhaka/i.test(existingLine1)) {
+          finalLine1 = "";
+        }
+        if (data.city === "Dhaka" && /old dhaka/i.test(finalArea)) {
+          finalArea = "";
+        }
       }
 
       const isDeliverable =
@@ -433,7 +474,7 @@ export function AddressManager({
         lat: coords.lat,
         lon: coords.lon,
         mapsUrl: data.mapsUrl || `https://www.google.com/maps?q=${coords.lat},${coords.lon}`,
-        area: data.area,
+        area: finalArea || data.area,
         city: data.city || "Chattagram",
         distanceKm: data.distanceKm,
         isDeliverable,
@@ -447,7 +488,7 @@ export function AddressManager({
         fullName: existingName,
         phone: existingPhone,
         line1: finalLine1,
-        area: data.area || formDraft.area,
+        area: finalArea,
         city: data.city || "Chattagram",
         postalCode: data.postalCode || formDraft.postalCode || "",
         instructions: existingNotes,
@@ -461,16 +502,20 @@ export function AddressManager({
       setFormKey((k) => k + 1);
 
       if (!isDeliverable) {
+        const areaLabel =
+          isCoarseNetwork && data.city === "Dhaka" && (!finalArea || /old dhaka/i.test(finalArea))
+            ? "Dhaka (network IP detected)"
+            : `${finalArea || data.area}, ${data.city}`;
         setLocationStatus({
           type: "warning",
-          message: `📍 ${data.area}, ${data.city} — Currently, delivery is not available in this area.`,
+          message: `📍 ${areaLabel} — Currently, delivery is not available in this area.`,
           mapsUrl: data.mapsUrl,
           isDeliverable: false,
         });
       } else {
         setLocationStatus({
           type: "success",
-          message: `📍 ${data.area}, ${data.city} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          message: `📍 ${finalArea || data.area}, ${data.city} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
           mapsUrl: data.mapsUrl,
           isDeliverable: true,
         });
@@ -827,16 +872,30 @@ export function AddressManager({
                   name="area"
                   required
                   list="suggested-areas"
-                  placeholder="e.g. Chandgaon or Banasree"
+                  placeholder="e.g. Banasree or Chandgaon"
                   defaultValue={formDraft.area}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    const matchDhaka = CANONICAL_DHAKA_AREAS.find(
+                      (a) => a.name.toLowerCase() === val.toLowerCase()
+                    );
+                    const matchCtg = CANONICAL_CHATTOGRAM_AREAS.find(
+                      (a) => a.name.toLowerCase() === val.toLowerCase()
+                    );
+                    if (matchDhaka) {
+                      applyQuickArea(matchDhaka.name);
+                    } else if (matchCtg) {
+                      applyQuickArea(matchCtg.name);
+                    }
+                  }}
                   error={fe.area?.[0]}
                 />
                 <datalist id="suggested-areas">
-                  {CHATTOGRAM_AREAS.map((a) => (
-                    <option key={`ctg-${a}`} value={a} />
-                  ))}
                   {COMMON_DHAKA_AREAS.map((a) => (
                     <option key={`dhaka-${a}`} value={a} />
+                  ))}
+                  {CHATTOGRAM_AREAS.map((a) => (
+                    <option key={`ctg-${a}`} value={a} />
                   ))}
                 </datalist>
               </div>
@@ -852,36 +911,57 @@ export function AddressManager({
                 name="postalCode"
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="e.g. 4212"
+                placeholder="e.g. 1219"
                 defaultValue={formDraft.postalCode}
                 error={fe.postalCode?.[0]}
               />
             </div>
 
-            {/* Popular Area Quick Chips */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[11px] font-semibold text-ink-soft">
-                {formDraft.city && formDraft.city.toLowerCase().includes("dhaka")
-                  ? "Dhaka areas:"
-                  : "Chattagram areas:"}
-              </span>
-              {(formDraft.city && formDraft.city.toLowerCase().includes("dhaka")
-                ? POPULAR_DHAKA_AREAS
-                : POPULAR_AREAS
-              ).map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => applyQuickArea(a)}
-                  className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
-                    formDraft.area.toLowerCase() === a.toLowerCase()
-                      ? "border-brand bg-mint-light text-[#0B3B17] font-bold"
-                      : "border-hairline bg-stone-50 text-ink-soft hover:bg-white hover:text-deep"
-                  }`}
-                >
-                  {a}
-                </button>
-              ))}
+            {/* Popular Area Quick Chips: Always show Dhaka & Chattagram */}
+            <div className="space-y-2 pt-1.5">
+              {/* Dhaka Area Quick Chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-gray-700">
+                  Dhaka areas:
+                </span>
+                {POPULAR_DHAKA_AREAS.map((a) => (
+                  <button
+                    key={`dhaka-${a}`}
+                    type="button"
+                    onClick={() => applyQuickArea(a)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shadow-xs ${
+                      formDraft.area.toLowerCase() === a.toLowerCase()
+                        ? "border-[#0B3B17] bg-[#0B3B17] text-white shadow-sm"
+                        : a === "Banasree"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold ring-1 ring-emerald-300 hover:bg-emerald-100"
+                        : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-white hover:text-deep hover:border-stone-300"
+                    }`}
+                  >
+                    📍 {a}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chattagram Area Quick Chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-gray-700">
+                  Chattagram areas:
+                </span>
+                {POPULAR_AREAS.map((a) => (
+                  <button
+                    key={`ctg-${a}`}
+                    type="button"
+                    onClick={() => applyQuickArea(a)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer shadow-xs ${
+                      formDraft.area.toLowerCase() === a.toLowerCase()
+                        ? "border-[#0B3B17] bg-[#0B3B17] text-white font-bold shadow-sm"
+                        : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-white hover:text-deep hover:border-stone-300"
+                    }`}
+                  >
+                    📍 {a}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
