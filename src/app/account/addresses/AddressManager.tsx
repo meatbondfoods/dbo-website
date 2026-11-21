@@ -523,33 +523,38 @@ export function AddressManager({
               </span>
             </h2>
             <p className="text-xs text-ink-soft mt-0.5">
-              Select or manage your addresses for express chilled checkout
+              {initial.length === 0
+                ? "You have not saved any delivery addresses yet."
+                : "Select or manage your addresses for express chilled checkout"}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              onClick={detectLiveLocation}
-              disabled={locating || initial.length >= 10}
-              className="inline-flex items-center gap-2 shadow-soft hover:shadow-lift transition-all"
-            >
-              {locating ? (
-                <Loader2 size={16} className="animate-spin text-white" />
-              ) : (
-                <Crosshair size={16} className="text-white" />
-              )}
-              <span>{locating ? "Detecting GPS…" : "Save Live Location"}</span>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleStartNew}
-              disabled={initial.length >= 10}
-              className="inline-flex items-center gap-1.5"
-            >
-              <Plus size={16} aria-hidden />
-              <span>Add address manually</span>
-            </Button>
-          </div>
+          {/* Only show top action buttons when there are already saved addresses to prevent duplicate buttons */}
+          {initial.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Button
+                onClick={detectLiveLocation}
+                disabled={locating || initial.length >= 10}
+                className="inline-flex items-center gap-2 shadow-soft hover:shadow-lift transition-all"
+              >
+                {locating ? (
+                  <Loader2 size={16} className="animate-spin text-white" />
+                ) : (
+                  <Crosshair size={16} className="text-white" />
+                )}
+                <span>{locating ? "Detecting GPS…" : "Save Live Location"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleStartNew}
+                disabled={initial.length >= 10}
+                className="inline-flex items-center gap-1.5"
+              >
+                <Plus size={16} aria-hidden />
+                <span>Add address manually</span>
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
