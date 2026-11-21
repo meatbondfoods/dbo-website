@@ -207,8 +207,8 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
       const isDeliverable = isChattagram(detectedCity, distanceKm);
       const isFreeDelivery = isDeliverable && distanceKm <= 7;
       const deliveryMessage = isDeliverable
-        ? (isFreeDelivery ? "Free delivery within 7 km" : "Delivery: ৳80")
-        : "Delivery is currently unavailable outside Chattagram";
+        ? (isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80")
+        : "Currently, delivery is not available in this area";
 
       return {
         line1,
@@ -234,8 +234,8 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeocodeR
   const isFallbackDeliverable = isChattagram(fallback.city, fallbackDistanceKm);
   const isFallbackFree = isFallbackDeliverable && fallbackDistanceKm <= 7;
   const fallbackDeliveryMessage = isFallbackDeliverable
-    ? (isFallbackFree ? "Free delivery within 7 km" : "Delivery: ৳80")
-    : "Delivery is currently unavailable outside Chattagram";
+    ? (isFallbackFree ? "Free delivery (within 7 km)" : "Delivery: ৳80")
+    : "Currently, delivery is not available in this area";
   return {
     line1: `Location near ${fallback.area}`,
     area: fallback.area,

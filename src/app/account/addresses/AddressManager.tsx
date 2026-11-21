@@ -176,17 +176,6 @@ export function AddressManager({
             ((data.city?.toLowerCase() === "chattagram" || data.city?.toLowerCase() === "chittagong") &&
               (data.distanceKm ?? 0) <= 35);
 
-          let distNote = "";
-          if (data.distanceKm !== undefined) {
-            if (!isDeliverable) {
-              distNote = ` (${data.distanceKm} km from Chandgaon hub · Currently delivery is not available outside Chattagram)`;
-            } else if (data.isFreeDelivery) {
-              distNote = ` (${data.distanceKm} km from Chandgaon hub · FREE delivery zone)`;
-            } else {
-              distNote = ` (${data.distanceKm} km from Chandgaon hub · Delivery: ৳80)`;
-            }
-          }
-
           setFormDraft({
             fullName: existingName,
             phone: existingPhone,
@@ -207,14 +196,15 @@ export function AddressManager({
           if (!isDeliverable) {
             setLocationStatus({
               type: "warning",
-              message: `📍 Live location detected: ${data.area}, ${data.city}${distNote}. Currently, delivery is not available for this location as our chilled delivery service operates exclusively within Chattagram. You may still save this address for your records.`,
+              message: `📍 ${data.area}, ${data.city} — Currently, delivery is not available in this area.`,
               mapsUrl: data.mapsUrl,
               isDeliverable: false,
             });
           } else {
+            const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
             setLocationStatus({
               type: "success",
-              message: `📍 Live location detected: ${data.area}, ${data.city}${distNote}. Address and Google Maps GPS pin are ready below. Review and click "Save address".`,
+              message: `📍 ${data.area}, ${data.city} — ${feeNote}`,
               mapsUrl: data.mapsUrl,
               isDeliverable: true,
             });
@@ -491,10 +481,10 @@ export function AddressManager({
           </label>
 
           {formDraft.city && !(formDraft.city.toLowerCase() === "chattagram" || formDraft.city.toLowerCase() === "chittagong" || formDraft.city.toLowerCase().includes("chatt")) && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
               <span>
-                <strong>Notice:</strong> Currently, delivery is not available for locations outside Chattagram. You may save this address to your account for future reference, but active delivery is limited to Chattagram.
+                <strong>Notice:</strong> Currently, delivery is not available in this area (available in Chattagram only).
               </span>
             </div>
           )}

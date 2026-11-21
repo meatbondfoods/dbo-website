@@ -110,17 +110,6 @@ export default function CheckoutPage() {
             ((detectedCity.toLowerCase() === "chattagram" || detectedCity.toLowerCase() === "chittagong" || detectedCity.toLowerCase().includes("chatt")) &&
               (data.distanceKm ?? 0) <= 35);
 
-          let distInfo = "";
-          if (data.distanceKm !== undefined) {
-            if (!isLocDeliverable) {
-              distInfo = ` (${data.distanceKm} km away · Delivery currently not available outside Chattagram)`;
-            } else if (data.isFreeDelivery) {
-              distInfo = ` (${data.distanceKm} km · FREE delivery)`;
-            } else {
-              distInfo = ` (${data.distanceKm} km · Delivery: ৳80)`;
-            }
-          }
-
           setPre((p) => ({
             ...p,
             n: p.n + 1,
@@ -132,14 +121,15 @@ export default function CheckoutPage() {
           if (!isLocDeliverable) {
             setLocationStatus({
               type: "warning",
-              message: `Detected: ${matchedArea}, ${detectedCity}${distInfo}. Currently, delivery is not available for this location as our fresh chilled delivery operates exclusively within Chattagram.`,
+              message: `📍 ${matchedArea}, ${detectedCity} — Currently, delivery is not available in this area.`,
               mapsUrl: data.mapsUrl,
               isDeliverable: false,
             });
           } else {
+            const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
             setLocationStatus({
               type: "success",
-              message: `Detected: ${matchedArea}, ${detectedCity}${distInfo}. Address & GPS pin auto-filled!`,
+              message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}`,
               mapsUrl: data.mapsUrl,
               isDeliverable: true,
             });
@@ -362,16 +352,11 @@ export default function CheckoutPage() {
             )}
 
             {!isDeliverable && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-semibold text-amber-950">
-                    Delivery is currently not available for this location
-                  </p>
-                  <p className="text-amber-800 leading-relaxed">
-                    MeatBond Foods currently delivers exclusively within Chattagram to ensure maximum freshness and temperature control. We are unable to accept orders for delivery to {city || "outside Chattagram"} at this time.
-                  </p>
-                </div>
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-center gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span className="font-medium">
+                  Currently, delivery is not available in this area (available in Chattagram only).
+                </span>
               </div>
             )}
 
@@ -392,7 +377,7 @@ export default function CheckoutPage() {
                         if (!isCtg) {
                           setLocationStatus({
                             type: "warning",
-                            message: `Selected address is in ${sCity}. Currently, delivery is not available for locations outside Chattagram.`,
+                            message: `📍 ${s.area}, ${sCity} — Currently, delivery is not available in this area.`,
                             isDeliverable: false,
                           });
                         } else {
@@ -544,12 +529,12 @@ export default function CheckoutPage() {
             {busy
               ? "Placing order…"
               : !isDeliverable
-              ? "Delivery unavailable outside Chattagram"
+              ? "Delivery currently unavailable"
               : `Place order · ${taka(totals.total)}`}
           </Button>
           {!isDeliverable && (
-            <p className="mt-2.5 text-center text-xs text-amber-700 font-medium leading-relaxed">
-              Delivery is currently available exclusively within Chattagram. Please select an address within Chattagram to proceed.
+            <p className="mt-2 text-center text-xs text-amber-700 font-medium">
+              Currently, delivery is not available in this area (available in Chattagram only).
             </p>
           )}
           <p className="mt-3 text-center text-xs text-ink-soft">Prices are re-checked by our server when you place the order.{!commerce.active && " Our team will confirm your delivery charge when confirming your order."}</p>

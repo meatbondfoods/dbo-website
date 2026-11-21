@@ -42,5 +42,5 @@ test("reverseGeocode formats mapsUrl and returns area, city, and deliverability"
   assert.equal(dhakaRes.city, "Dhaka");
   assert.equal(dhakaRes.isDeliverable, false);
   assert.equal(dhakaRes.isFreeDelivery, false);
-  assert.ok(dhakaRes.deliveryMessage?.includes("unavailable"));
+  assert.ok(dhakaRes.deliveryMessage?.includes("not available"));
 });
