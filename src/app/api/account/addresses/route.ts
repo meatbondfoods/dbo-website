@@ -3,6 +3,9 @@ import { parseBody, requireCustomer } from "@/lib/routeAuth";
 import { addressSchema } from "@/lib/auth/schemas";
 import { createAddress, listAddresses } from "@/lib/auth/service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: Request) {
   const a = await requireCustomer(req, false); if ("res" in a) return a.res;
   return json({ addresses: await listAddresses(a.user) });

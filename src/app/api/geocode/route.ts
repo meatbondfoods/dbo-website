@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { reverseGeocode, CHATTOGRAM_CENTER } from "@/lib/geocode";
 import { apiError, json } from "@/lib/http";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   let latStr = url.searchParams.get("lat");
