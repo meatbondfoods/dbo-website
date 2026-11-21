@@ -1,14 +1,23 @@
 import { NextRequest } from "next/server";
-import { reverseGeocode } from "@/lib/geocode";
+import { reverseGeocode, CHATTOGRAM_CENTER } from "@/lib/geocode";
 import { apiError, json } from "@/lib/http";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const latStr = url.searchParams.get("lat");
-  const lonStr = url.searchParams.get("lon");
+  let latStr = url.searchParams.get("lat");
+  let lonStr = url.searchParams.get("lon");
 
+  // If lat or lon is missing, fallback to Vercel IP location headers or Chattagram center
   if (!latStr || !lonStr) {
-    return apiError("Missing lat or lon query parameter", 400);
+    const vLat = req.headers.get("x-vercel-ip-latitude");
+    const vLon = req.headers.get("x-vercel-ip-longitude");
+    if (vLat && vLon) {
+      latStr = vLat;
+      lonStr = vLon;
+    } else {
+      latStr = String(CHATTOGRAM_CENTER.lat);
+      lonStr = String(CHATTOGRAM_CENTER.lon);
+    }
   }
 
   const lat = parseFloat(latStr);

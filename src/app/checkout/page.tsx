@@ -53,118 +53,131 @@ export default function CheckoutPage() {
   const keyRef = useRef<string>(crypto.randomUUID());
   const checkoutTrackedRef = useRef(false);
 
-  const detectLocation = () => {
-    if (typeof window === "undefined" || !("geolocation" in navigator)) {
-      setLocationStatus({
-        type: "error",
-        message: "Geolocation is not supported by your browser. Please enter your address manually.",
-      });
-      return;
-    }
-
+  const detectLocation = async () => {
     setLocating(true);
     setLocationStatus(null);
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+    const getCoords = async (): Promise<{ lat: number; lon: number; source: "gps" | "network" }> => {
+      if (typeof window !== "undefined" && "geolocation" in navigator) {
+        // Pass 1: Fast Wi-Fi / Cell / OS cache (3.5s timeout, 5 min cache, low accuracy)
         try {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          const res = await fetch(`/api/geocode?lat=${lat}&lon=${lon}`);
-          const data = await res.json();
-
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || "Could not resolve address");
-          }
-
-          let matchedArea = data.area;
-          if (commerce?.areas && commerce.areas.length > 0) {
-            const found = commerce.areas.find(
-              (a) =>
-                a.name.toLowerCase().includes(data.area.toLowerCase()) ||
-                data.area.toLowerCase().includes(a.name.toLowerCase())
-            );
-            if (found) matchedArea = found.name;
-          }
-          setArea(matchedArea);
-
-          const formEl = formRef.current;
-          const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
-          const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
-
-          let finalLine1 = data.line1;
-          if (existingLine1 && !existingLine1.includes(data.line1)) {
-            finalLine1 = `${existingLine1}, ${data.line1}`;
-          }
-
-          const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();
-          const finalNotes = cleanNotes
-            ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
-            : `📍 GPS Pin: ${data.mapsUrl}`;
-
-          const detectedCity = data.city || "Chattagram";
-          setCity(detectedCity);
-
-          const isLocDeliverable =
-            data.isDeliverable ??
-            ((detectedCity.toLowerCase() === "chattagram" || detectedCity.toLowerCase() === "chittagong" || detectedCity.toLowerCase().includes("chatt")) &&
-              (data.distanceKm ?? 0) <= 35);
-
-          setPre((p) => ({
-            ...p,
-            n: p.n + 1,
-            line1: finalLine1,
-            city: detectedCity,
-            notes: finalNotes,
-          }));
-
-          if (!isLocDeliverable) {
-            setLocationStatus({
-              type: "warning",
-              message: `📍 ${matchedArea}, ${detectedCity} — Currently, delivery is not available in this area.`,
-              mapsUrl: data.mapsUrl,
-              isDeliverable: false,
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: false,
+              timeout: 3500,
+              maximumAge: 300000,
             });
-          } else {
-            const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
-            setLocationStatus({
-              type: "success",
-              message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}`,
-              mapsUrl: data.mapsUrl,
-              isDeliverable: true,
-            });
-          }
-        } catch (err) {
-          console.error("Location error:", err);
-          setLocationStatus({
-            type: "error",
-            message: "Unable to find address from GPS. Please enter your address manually.",
           });
-        } finally {
-          setLocating(false);
+          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
+        } catch (err: any) {
+          if (err?.code === 1) throw err;
         }
-      },
-      (geoError) => {
-        setLocating(false);
-        let msg = "Could not get your location.";
-        if (geoError.code === geoError.PERMISSION_DENIED) {
-          msg = "Location permission denied. Please allow location permissions in your browser or type address manually.";
-        } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
-          msg = "GPS location unavailable on your device. Please enter address manually.";
-        } else if (geoError.code === geoError.TIMEOUT) {
-          msg = "Location request timed out. Please try again or enter address manually.";
+
+        // Pass 2: High accuracy retry with 4s timeout
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 4000,
+              maximumAge: 60000,
+            });
+          });
+          return { lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" };
+        } catch (err: any) {
+          if (err?.code === 1) throw err;
         }
-        setLocationStatus({
-          type: "error",
-          message: msg,
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0,
       }
-    );
+
+      // Pass 3: Automatic Network / IP Location fallback
+      const ipRes = await fetch("/api/geocode").catch(() => null);
+      if (ipRes && ipRes.ok) {
+        const ipData = await ipRes.json().catch(() => null);
+        if (ipData?.latitude && ipData?.longitude) {
+          return { lat: ipData.latitude, lon: ipData.longitude, source: "network" };
+        }
+      }
+
+      throw new Error("Could not acquire location");
+    };
+
+    try {
+      const coords = await getCoords();
+      const res = await fetch(`/api/geocode?lat=${coords.lat}&lon=${coords.lon}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Could not resolve address");
+      }
+
+      let matchedArea = data.area;
+      if (commerce?.areas && commerce.areas.length > 0) {
+        const found = commerce.areas.find(
+          (a) =>
+            a.name.toLowerCase().includes(data.area.toLowerCase()) ||
+            data.area.toLowerCase().includes(a.name.toLowerCase())
+        );
+        if (found) matchedArea = found.name;
+      }
+      setArea(matchedArea);
+
+      const formEl = formRef.current;
+      const existingLine1 = (formEl?.elements.namedItem("line1") as HTMLInputElement)?.value || pre.line1 || "";
+      const existingNotes = (formEl?.elements.namedItem("notes") as HTMLTextAreaElement)?.value || pre.notes || "";
+
+      let finalLine1 = data.line1;
+      if (existingLine1 && !existingLine1.includes(data.line1)) {
+        finalLine1 = `${existingLine1}, ${data.line1}`;
+      }
+
+      const cleanNotes = existingNotes.replace(/\n?📍 GPS Pin:.*$/g, "").trim();
+      const finalNotes = cleanNotes
+        ? `${cleanNotes}\n📍 GPS Pin: ${data.mapsUrl}`
+        : `📍 GPS Pin: ${data.mapsUrl}`;
+
+      const detectedCity = data.city || "Chattagram";
+      setCity(detectedCity);
+
+      const isLocDeliverable =
+        data.isDeliverable ??
+        ((detectedCity.toLowerCase() === "chattagram" || detectedCity.toLowerCase() === "chittagong" || detectedCity.toLowerCase().includes("chatt")) &&
+          (data.distanceKm ?? 0) <= 35);
+
+      setPre((p) => ({
+        ...p,
+        n: p.n + 1,
+        line1: finalLine1,
+        city: detectedCity,
+        notes: finalNotes,
+      }));
+
+      if (!isLocDeliverable) {
+        setLocationStatus({
+          type: "warning",
+          message: `📍 ${matchedArea}, ${detectedCity} — Currently, delivery is not available in this area.`,
+          mapsUrl: data.mapsUrl,
+          isDeliverable: false,
+        });
+      } else {
+        const feeNote = data.isFreeDelivery ? "Free delivery (within 7 km)" : "Delivery: ৳80";
+        setLocationStatus({
+          type: "success",
+          message: `📍 ${matchedArea}, ${detectedCity} — ${feeNote}${coords.source === "network" ? " (via network)" : ""}`,
+          mapsUrl: data.mapsUrl,
+          isDeliverable: true,
+        });
+      }
+    } catch (err: any) {
+      let msg = "Device location unavailable. Please select your area or enter address manually.";
+      if (err?.code === 1) {
+        msg = "Location permission is blocked in your browser. Please allow location access or select your area below.";
+      }
+      setLocationStatus({
+        type: "error",
+        message: msg,
+      });
+    } finally {
+      setLocating(false);
+    }
   };
 
   useEffect(() => {

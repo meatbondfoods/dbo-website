@@ -212,7 +212,7 @@ export function VerifyEmail() {
     : <div className="space-y-4"><Notice kind="error">{msg || "This verification link is invalid or has expired."}</Notice><Link href="/login" className="btn-outline">Back to sign in</Link></div>;
 }
 
-export function LogoutButton({ variant = "outline" }: { variant?: "outline" | "ghost" }) {
+export function LogoutButton({ variant = "outline", className = "" }: { variant?: "outline" | "ghost"; className?: string }) {
   const router = useRouter(); const [busy, setBusy] = useState(false);
-  return <Button variant={variant} disabled={busy} onClick={async () => { setBusy(true); await post("/api/auth/logout", {}); router.push("/"); router.refresh(); }}>Sign out</Button>;
+  return <Button variant={variant} className={className} disabled={busy} onClick={async () => { setBusy(true); await post("/api/auth/logout", {}); router.push("/"); router.refresh(); }}>Sign out</Button>;
 }
