@@ -93,18 +93,7 @@ const POPULAR_AREAS = [
   "Agrabad",
   "Khulshi",
   "Halishahar",
-  "Chawkbazar",
-];
-
-const POPULAR_DHAKA_AREAS = [
   "Banasree",
-  "Aftabnagar",
-  "Rampura",
-  "Gulshan",
-  "Banani",
-  "Dhanmondi",
-  "Uttara",
-  "Mirpur",
 ];
 
 function isCityChattagram(city?: string | null): boolean {
@@ -504,9 +493,9 @@ export function AddressManager({
         });
       }
     } catch (err: any) {
-      let msg = "Could not access live device GPS. Please click [📍 Banasree] below or enter your address manually.";
+      let msg = "Unable to retrieve device location. Please select your area or enter your address below.";
       if (err?.code === 1) {
-        msg = "Location permission is waiting for page reload in Chrome. Please reload the page or click [📍 Banasree] below.";
+        msg = "Location access was not granted. Please select your area or enter your address below.";
       }
       setLocationStatus({ type: "error", message: msg });
       if (!editing) setEditing("new");
@@ -671,98 +660,41 @@ export function AddressManager({
         </div>
       )}
 
-      {/* Location Status Banner with Fast Area Fallback */}
+      {/* Location Status Banner */}
       {locationStatus && (
         <div
           role="status"
-          className={`rounded-2xl border p-4 text-xs font-medium space-y-2.5 ${
+          className={`flex items-start justify-between gap-3 rounded-2xl border p-4 text-xs font-medium transition-all ${
             locationStatus.type === "success"
               ? "border-emerald-300 bg-emerald-50/80 text-[#0B3B17]"
               : locationStatus.type === "warning"
-              ? "border-amber-300 bg-amber-50 text-amber-900"
-              : "border-danger/30 bg-danger/5 text-danger"
+              ? "border-amber-300 bg-amber-50/90 text-amber-900"
+              : "border-stone-300 bg-stone-50 text-stone-700"
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              {locationStatus.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-leaf mt-0.5" />
-              ) : locationStatus.type === "warning" ? (
-                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-4 w-4 shrink-0 text-danger mt-0.5" />
-              )}
-              <span className="leading-relaxed">{locationStatus.message}</span>
-            </div>
-            {locationStatus.mapsUrl && (
-              <a
-                href={locationStatus.mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`shrink-0 font-semibold underline inline-flex items-center gap-1 ${
-                  locationStatus.type === "warning"
-                    ? "text-amber-800 hover:text-amber-950"
-                    : "text-brand hover:text-deep"
-                }`}
-              >
-                View pin <ExternalLink className="h-3 w-3" />
-              </a>
+          <div className="flex items-start gap-2.5">
+            {locationStatus.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-leaf mt-0.5" />
+            ) : locationStatus.type === "warning" ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0 text-stone-500 mt-0.5" />
             )}
+            <span className="leading-relaxed">{locationStatus.message}</span>
           </div>
-
-          {/* Quick Area Buttons if location is out of delivery area or unavailable */}
-          {(locationStatus.type === "error" || locationStatus.type === "warning") && (
-            <div
-              className={`pt-2.5 border-t space-y-2 ${
-                locationStatus.type === "error" ? "border-danger/20" : "border-amber-200"
+          {locationStatus.mapsUrl && (
+            <a
+              href={locationStatus.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`shrink-0 font-semibold underline inline-flex items-center gap-1 ${
+                locationStatus.type === "warning"
+                  ? "text-amber-800 hover:text-amber-950"
+                  : "text-brand hover:text-deep"
               }`}
             >
-              {/* Dhaka Area Quick Select */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className={`font-semibold text-[11px] mr-1 ${
-                    locationStatus.type === "error" ? "text-danger" : "text-amber-900"
-                  }`}
-                >
-                  Select Dhaka area:
-                </span>
-                {POPULAR_DHAKA_AREAS.map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => applyQuickArea(a)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold cursor-pointer shadow-xs transition-colors ${
-                      formDraft.area.toLowerCase() === a.toLowerCase()
-                        ? "border-[#0B3B17] bg-[#0B3B17] text-white"
-                        : "border-brand/30 bg-white text-brand hover:bg-mint-light hover:border-brand"
-                    }`}
-                  >
-                    📍 {a}
-                  </button>
-                ))}
-              </div>
-
-              {/* Chattagram Area Quick Select */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-amber-200/50">
-                <span
-                  className={`font-semibold text-[11px] mr-1 ${
-                    locationStatus.type === "error" ? "text-danger" : "text-amber-900"
-                  }`}
-                >
-                  Or deliver to Chattagram:
-                </span>
-                {POPULAR_AREAS.map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => applyQuickArea(a)}
-                    className="rounded-lg border border-brand/20 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-brand hover:bg-mint-light hover:border-brand cursor-pointer shadow-xs transition-colors"
-                  >
-                    📍 {a}
-                  </button>
-                ))}
-              </div>
-            </div>
+              View pin <ExternalLink className="h-3 w-3" />
+            </a>
           )}
         </div>
       )}
@@ -900,51 +832,25 @@ export function AddressManager({
               />
             </div>
 
-            {/* Popular Area Quick Chips: Always show Dhaka & Chattagram */}
-            <div className="space-y-2 pt-1.5">
-              {/* Dhaka Area Quick Chips */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold text-gray-700">
-                  Dhaka areas:
-                </span>
-                {POPULAR_DHAKA_AREAS.map((a) => (
-                  <button
-                    key={`dhaka-${a}`}
-                    type="button"
-                    onClick={() => applyQuickArea(a)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shadow-xs ${
-                      formDraft.area.toLowerCase() === a.toLowerCase()
-                        ? "border-[#0B3B17] bg-[#0B3B17] text-white shadow-sm"
-                        : a === "Banasree"
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold ring-1 ring-emerald-300 hover:bg-emerald-100"
-                        : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-white hover:text-deep hover:border-stone-300"
-                    }`}
-                  >
-                    📍 {a}
-                  </button>
-                ))}
-              </div>
-
-              {/* Chattagram Area Quick Chips */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold text-gray-700">
-                  Chattagram areas:
-                </span>
-                {POPULAR_AREAS.map((a) => (
-                  <button
-                    key={`ctg-${a}`}
-                    type="button"
-                    onClick={() => applyQuickArea(a)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer shadow-xs ${
-                      formDraft.area.toLowerCase() === a.toLowerCase()
-                        ? "border-[#0B3B17] bg-[#0B3B17] text-white font-bold shadow-sm"
-                        : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-white hover:text-deep hover:border-stone-300"
-                    }`}
-                  >
-                    📍 {a}
-                  </button>
-                ))}
-              </div>
+            {/* Popular Delivery Areas */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+              <span className="text-[11px] font-semibold text-ink-soft mr-0.5">
+                Popular areas:
+              </span>
+              {POPULAR_AREAS.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => applyQuickArea(a)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                    formDraft.area.toLowerCase() === a.toLowerCase()
+                      ? "border-[#0B3B17] bg-[#0B3B17] text-white font-semibold shadow-xs"
+                      : "border-hairline bg-stone-50 text-ink-soft hover:bg-white hover:text-deep hover:border-brand/40"
+                  }`}
+                >
+                  {a}
+                </button>
+              ))}
             </div>
           </div>
 
