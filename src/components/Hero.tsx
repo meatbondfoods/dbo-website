@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { ArrowRight, Pause, Play, ShieldCheck, Snowflake, Sparkles } from "lucide-react";
 import type { ContentMap, DeliveryConfig } from "@/lib/content/schema";
 import { ButtonLink } from "./ui/Button";
 
@@ -79,7 +79,7 @@ export function Hero({ hero, commerce }: HeroProps) {
   return (
     <section
       aria-labelledby="hero-title"
-      className="relative w-full overflow-hidden bg-deep min-h-[520px] sm:min-h-[580px] lg:min-h-[660px] xl:min-h-[720px] flex items-center"
+      className="relative w-full overflow-hidden bg-deep min-h-[500px] sm:min-h-[580px] lg:min-h-[660px] xl:min-h-[720px] flex items-center"
     >
       {/* Background Video */}
       {!hasError && (
@@ -104,7 +104,7 @@ export function Hero({ hero, commerce }: HeroProps) {
         />
       )}
 
-      {/* Static Poster Fallback if video fails to load or error occurs */}
+      {/* Static Realistic Food Photography Fallback */}
       {hasError && (
         <div
           className="absolute inset-0 h-full w-full bg-cover bg-center"
@@ -113,42 +113,64 @@ export function Hero({ hero, commerce }: HeroProps) {
         />
       )}
 
-      {/* Subtle Dark Forest-Green Gradient Overlay for Optimal Readability */}
+      {/* Refined Dark Forest-Green Gradient Overlay: Crisp Legibility Without Excessive Watermarks */}
       <div
-        className="absolute inset-0 bg-gradient-to-r from-deep/95 via-deep/80 to-deep/40 sm:from-deep/85 sm:via-deep/55 sm:to-deep/25 pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-r from-deep/95 via-deep/80 to-deep/40 sm:from-deep/92 sm:via-deep/70 sm:to-transparent pointer-events-none"
         aria-hidden="true"
       />
 
       {/* Hero Foreground Content */}
       <div className="container-page relative z-10 py-16 sm:py-20 lg:py-28">
         <div className="max-w-2xl text-left">
-          {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-deep/60 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white backdrop-blur-md shadow-soft">
-            <span className="h-2 w-2 rounded-full bg-gold animate-pulse" aria-hidden="true" />
-            MEATBOND FOODS
+          {/* Eyebrow badge: Clean brand pill without distracting pulse animation */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-deep/75 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white backdrop-blur-md shadow-soft">
+            <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
+            MEATBOND MART
           </div>
 
           {/* Main Headline */}
           <h1
             id="hero-title"
-            className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] drop-shadow-md"
+            className="mt-4 text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.6rem] drop-shadow-md"
           >
             Quality That Builds Trust.
           </h1>
 
-          {/* Subheadline */}
-          <p className="mt-5 max-w-xl text-lg sm:text-xl font-medium leading-relaxed text-mint drop-shadow">
-            Fresh Choices for Every Kitchen.
+          {/* Supporting Text */}
+          <p className="mt-4 max-w-xl text-lg sm:text-xl font-medium leading-relaxed text-mint-light drop-shadow">
+            Fresh Choices. Better Living.
           </p>
 
-          {/* CTA Button */}
+          {/* Trust Highlights */}
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs sm:text-sm font-medium text-white/90">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck size={16} className="text-gold" aria-hidden="true" /> 100% Halal Verified
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Snowflake size={16} className="text-mint" aria-hidden="true" /> Chilled Delivery
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Sparkles size={16} className="text-gold" aria-hidden="true" /> Packed Fresh to Order
+            </span>
+          </div>
+
+          {/* Action Buttons */}
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <ButtonLink
               href="/shop"
               variant="gold"
-              className="px-8 py-3.5 text-base font-bold shadow-lift transition-all hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]"
+              className="group px-8 py-3.5 text-base font-bold shadow-lift transition-all hover:scale-[1.02] hover:brightness-110 active:scale-[0.98] inline-flex items-center gap-2"
             >
-              SHOP NOW
+              <span>SHOP NOW</span>
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </ButtonLink>
+
+            <ButtonLink
+              href="/shop?category=processed-meat"
+              variant="outline"
+              className="border-white/30 bg-white/10 text-white backdrop-blur-md hover:bg-white/20 px-6 py-3.5 text-base font-semibold"
+            >
+              Explore Cuts
             </ButtonLink>
           </div>
         </div>
