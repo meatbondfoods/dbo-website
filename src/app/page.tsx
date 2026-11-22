@@ -5,6 +5,7 @@ import { Hero } from "@/components/Hero";
 import { CategoryCard } from "@/components/CategoryCard";
 import { ProductGrid } from "@/components/ProductGrid";
 import { Newsletter } from "@/components/Newsletter";
+import { QualityVideoPlayer } from "@/components/QualityVideoPlayer";
 import { ButtonLink } from "@/components/ui/Button";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import type { Category } from "@/lib/domain/types";
@@ -93,9 +94,7 @@ export default async function Home() {
     ),
     quality: (t) => (
       <section key="quality" className="container-page grid items-center gap-10 pt-20 lg:grid-cols-2" aria-labelledby="quality">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-hairline shadow-soft bg-canvas">
-          <Image src="/videos/meatbond-poster.jpg" alt="Hygienic fresh meat handling and quality products at MeatBond Mart" fill unoptimized sizes="(min-width:1024px) 50vw, 100vw" className="object-cover" />
-        </div>
+        <QualityVideoPlayer />
         <div>
           <SectionHeading id="quality" eyebrow="Quality & freshness" title={t || "Care at every step"} description="MeatBond Foods processes and packs your order in-house, with rigorous cold-chain handling from our facility to your kitchen." />
           <ul className="mt-6 space-y-3.5">
@@ -106,6 +105,11 @@ export default async function Home() {
               </li>
             ))}
           </ul>
+          <div className="mt-8">
+            <ButtonLink href="/shop" variant="primary" className="px-7 py-3.5 font-bold shadow-lift">
+              See How We Prepare Your Chicken
+            </ButtonLink>
+          </div>
         </div>
       </section>
     ),

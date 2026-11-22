@@ -18,7 +18,7 @@ export const orderInputSchema = z.object({
   paymentMethod: z.enum(["cod", "bkash", "nagad", "card"]),
   lines: z.array(z.object({
     productId: z.string().min(1).max(64),
-    optionId: z.string().min(1).max(32),
+    optionId: z.string().min(1).max(64),
     quantity: z.number().int().min(1).max(50),
   })).min(1).max(40),
 });
