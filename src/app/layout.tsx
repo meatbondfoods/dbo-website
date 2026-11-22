@@ -18,10 +18,24 @@ const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap
 // SEO comes from the PUBLISHED admin-managed settings (never a draft).
 export function generateMetadata(): Metadata {
   const seo = getContent("seo");
+  const siteTitle = seo.siteTitle || "MeatBond MART | Quality That Builds Trust";
+  const ogImage = seo.ogImage || "/meatbond-mart-logo.png";
   return {
-    title: { default: seo.siteTitle, template: "%s | MeatBond Mart" },
+    title: { default: siteTitle, template: "%s | MeatBond MART" },
     description: seo.description,
-    openGraph: { title: seo.siteTitle, description: seo.description, siteName: "MeatBond Mart", ...(seo.ogImage ? { images: [seo.ogImage] } : {}) },
+    openGraph: {
+      title: siteTitle,
+      description: seo.description,
+      siteName: "MeatBond MART",
+      images: [{ url: ogImage, width: 1024, height: 384, alt: "MeatBond MART" }],
+    },
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "32x32" },
+        { url: "/icon.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    },
   };
 }
 export const viewport: Viewport = { themeColor: "#124C32", width: "device-width", initialScale: 1 };

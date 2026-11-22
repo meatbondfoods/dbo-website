@@ -74,6 +74,6 @@ export const DEFAULTS: ContentMap = {
       { id: "reviews", visible: true, title: "" }, { id: "newsletter", visible: true, title: "" },
     ],
   },
-  seo: { siteTitle: "MeatBond Mart | Premium Meat, Poultry & Food Shopping", description: "Fresh chicken, processed products and quality meat from MeatBond Foods.", ogImage: "" },
-  brand: { logoPath: "", logoAlt: "MeatBond Mart" },
+  seo: { siteTitle: "MeatBond MART | Quality That Builds Trust", description: "Fresh chicken, processed products and quality meat from MeatBond Foods.", ogImage: "/meatbond-mart-logo.png" },
+  brand: { logoPath: "/meatbond-mart-logo.png", logoAlt: "MeatBond MART" },
 };

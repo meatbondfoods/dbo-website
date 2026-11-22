@@ -42,7 +42,7 @@ export function Footer({ categories, site, logo }: { categories: Category[]; sit
       </div>
       <div className="border-t border-white/15">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-5 text-xs text-white/75 sm:flex-row">
-          <p>© {new Date().getFullYear()} MeatBond Mart. A MeatBond Foods brand.</p>
+          <p>© {new Date().getFullYear()} MeatBond MART. A MeatBond Foods brand.</p>
           <ul className="flex gap-5"><li><Link href="/privacy-policy" className="hover:text-white hover:underline">Privacy policy</Link></li><li><Link href="/terms" className="hover:text-white hover:underline">Terms &amp; conditions</Link></li></ul>
         </div>
         <p className="border-t border-white/10 py-2.5 text-center text-[11px] text-white/65">Demo storefront: products, prices, reviews and some copy are sample content.</p>

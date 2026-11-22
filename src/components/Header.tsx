@@ -43,7 +43,7 @@ export function Header({ categories, announcement, nav, logo }: { categories: Ca
   return (
     <header className="sticky top-0 z-40 border-b border-hairline bg-white">
       {announcement && <div className="on-dark bg-deep py-2 text-center text-xs font-medium text-white">{announcement}</div>}
-      <div className="container-page flex h-[72px] items-center gap-6">
+      <div className="container-page flex h-[72px] sm:h-[76px] items-center gap-6">
         <Wordmark logo={{ path: logo.logoPath, alt: logo.logoAlt }} />
         <nav aria-label="Main" className="ml-4 hidden items-center gap-7 lg:flex">
           {nav.items.slice(0, 2).map((i) => <span key={i.href + i.label} className="contents">{link(i.href, i.label)}</span>)}

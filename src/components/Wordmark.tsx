@@ -1,28 +1,40 @@
 import Link from "next/link";
 
-/** MeatBond Mart wordmark: a monogram tile with a gold accent, plus the name set in Inter. Uses theme variables. */
-export function Wordmark({ light = false, logo }: { light?: boolean; logo?: { path: string; alt: string } }) {
-  if (logo?.path) {
+interface WordmarkProps {
+  light?: boolean;
+  logo?: { path?: string; alt?: string };
+}
+
+/** Official MeatBond MART brand logo */
+export function Wordmark({ light = false, logo }: WordmarkProps) {
+  const logoPath = logo?.path || "/meatbond-mart-logo.png";
+  const logoAlt = logo?.alt || "MeatBond MART";
+
+  if (light) {
+    // Footer presentation: crisp white rounded card/badge ensuring high visibility against the dark forest-green footer
     return (
-      <Link href="/" aria-label="MeatBond Mart, home" className="inline-flex items-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logo.path} alt={logo.alt || "MeatBond Mart"} className={`h-9 w-auto max-w-[180px] object-contain ${light ? "rounded bg-white p-1" : ""}`} />
+      <Link href="/" aria-label="MeatBond MART, home" className="inline-flex items-center">
+        <div className="inline-flex items-center justify-center rounded-xl bg-white px-3.5 py-2 shadow-soft transition-transform hover:scale-[1.02]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logoPath}
+            alt={logoAlt}
+            className="h-10 sm:h-11 w-auto max-w-[170px] sm:max-w-[190px] object-contain"
+          />
+        </div>
       </Link>
     );
   }
-  const tile = light ? "rgb(255 255 255)" : "rgb(var(--c-brand))";
-  const stroke = light ? "rgb(var(--c-brand))" : "rgb(255 255 255)";
+
+  // Header presentation: desktop ~48-54px, mobile ~38-44px, crisp alignment on white header
   return (
-    <Link href="/" aria-label="MeatBond Mart, home" className="inline-flex items-center gap-2.5">
-      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden className="shrink-0">
-        <rect width="36" height="36" rx="9" style={{ fill: tile }} />
-        <path d="M9 26V11.5l4.5 6.5 4.5-6.5V26" fill="none" style={{ stroke }} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M20.5 26l3.2-7.2L27 26" fill="none" style={{ stroke: "rgb(var(--c-gold))" }} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span className="leading-none">
-        <span className={`block text-[1.15rem] font-extrabold tracking-tight ${light ? "text-white" : "text-deep"}`}>MeatBond</span>
-        <span className={`block pt-0.5 text-[0.62rem] font-bold uppercase tracking-[0.34em] ${light ? "text-gold" : "text-leaf"}`}>Mart</span>
-      </span>
+    <Link href="/" aria-label="MeatBond MART, home" className="inline-flex items-center py-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logoPath}
+        alt={logoAlt}
+        className="h-[38px] sm:h-[44px] md:h-[50px] lg:h-[52px] w-auto max-w-[180px] sm:max-w-[210px] object-contain transition-transform hover:opacity-95"
+      />
     </Link>
   );
 }
