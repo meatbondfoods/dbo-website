@@ -171,8 +171,8 @@ export class SupabaseOrderRepository implements OrderRepository {
           request_hash: crypto.createHash("sha256").update(JSON.stringify(input)).digest("hex"),
           payment_method: input.paymentMethod,
           payment_status: order.paymentStatus,
-          customer_name: input.customer.name,
-          customer_phone: normalizeBdPhone(input.customer.phone) || input.customer.phone,
+          delivery_name: input.customer.name,
+          delivery_phone: normalizeBdPhone(input.customer.phone) || input.customer.phone,
           customer_email: input.customer.email || null,
           delivery_line1: input.address.line1,
           delivery_area: input.address.area,
@@ -196,20 +196,28 @@ export class SupabaseOrderRepository implements OrderRepository {
               product_name: prod?.name || "Product",
               unit: "kg",
               quantity: l.quantity,
-              submitted_unit_price: opt?.price || 0,
-              grams: opt?.grams || null,
+              unit_price: opt?.price || 0,
+              weight_grams: opt?.grams || null,
               option_label: opt?.label || null,
               option_id: opt?.id || null,
               line_total: (opt?.price || 0) * l.quantity,
             };
           });
 
-          await (this.client as any).from("web_order_items").insert(itemsToInsert);
+          const { error: itemsError } = await (this.client as any).from("web_order_items").insert(itemsToInsert);
+          if (itemsError) {
+            // Never leave a half-saved order behind: remove it and fail the checkout.
+            await (this.client as any).from("web_orders").delete().eq("id", order.id);
+            throw new Error(`order items insert failed: ${itemsError.message}`);
+          }
         } else {
-          console.warn("[SupabaseOrderRepository] Database insert failed:", orderError.message);
+          throw new Error(`order insert failed: ${orderError.message}`);
         }
       } catch (err) {
-        console.warn("[SupabaseOrderRepository] Supabase persistence error:", err);
+        // The order was NOT saved. Fail the checkout instead of reporting success for an order that
+        // only exists in this server's memory (it would be lost and never reach the ERP).
+        console.error("[SupabaseOrderRepository] could not save the order:", err instanceof Error ? err.message : err);
+        throw new Error("Could not place order");
       }
     }
 
@@ -315,7 +323,7 @@ export class SupabaseOrderRepository implements OrderRepository {
         const norm = normalizeBdPhone(phone);
         const { data } = await (this.client as any).from("web_orders")
           .select("*, items:web_order_items(*)")
-          .or(`customer_phone.eq.${phone},customer_phone.eq.${norm || phone},delivery_phone.eq.${phone},delivery_phone.eq.${norm || phone}`)
+          .or(`delivery_phone.eq.${phone},delivery_phone.eq.${norm || phone}`)
           .order("submitted_at", { ascending: false });
 
         if (data) {
@@ -339,12 +347,9 @@ export class SupabaseOrderRepository implements OrderRepository {
         const filters: string[] = [];
         if (customerId) {
           filters.push(`web_customer_id.eq.${customerId}`);
-          filters.push(`customer_id.eq.${customerId}`);
         }
         if (phone) {
           const norm = normalizeBdPhone(phone);
-          filters.push(`customer_phone.eq.${phone}`);
-          if (norm && norm !== phone) filters.push(`customer_phone.eq.${norm}`);
           filters.push(`delivery_phone.eq.${phone}`);
           if (norm && norm !== phone) filters.push(`delivery_phone.eq.${norm}`);
         }
@@ -412,8 +417,8 @@ export class SupabaseOrderRepository implements OrderRepository {
       idempotencyKey: row.idempotency_key,
       input: {
         customer: {
-          name: row.customer_name || row.delivery_name || "",
-          phone: row.customer_phone || row.delivery_phone || "",
+          name: row.delivery_name || row.customer_name || "",
+          phone: row.delivery_phone || row.customer_phone || "",
         },
         address: {
           line1: row.delivery_line1,
