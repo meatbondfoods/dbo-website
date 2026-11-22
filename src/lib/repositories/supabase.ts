@@ -200,7 +200,6 @@ export class SupabaseOrderRepository implements OrderRepository {
               weight_grams: opt?.grams || null,
               option_label: opt?.label || null,
               option_id: opt?.id || null,
-              line_total: (opt?.price || 0) * l.quantity,
             };
           });
 
