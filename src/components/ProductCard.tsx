@@ -18,6 +18,10 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const soldOut = product.availability === "out_of_stock";
   const lowStock = product.availability === "low_stock";
   const href = `/product/${product.slug}`;
+  const hasOffer = option.compareAtPrice != null && option.compareAtPrice > option.price;
+  const offerPct = hasOffer && option.compareAtPrice
+    ? Math.max(1, Math.round(((option.compareAtPrice - option.price) / option.compareAtPrice) * 100))
+    : 0;
 
   const handleAddToCart = () => {
     if (soldOut) return;
@@ -54,11 +58,15 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           />
 
           {/* Promotional / Marketing Badge */}
-          {product.badge && (
+          {product.badge ? (
             <span className="absolute left-3 top-3 rounded-full bg-gold px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-deep shadow-sm">
               {product.badge}
             </span>
-          )}
+          ) : hasOffer ? (
+            <span className="absolute left-3 top-3 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-sm">
+              {offerPct}% OFF
+            </span>
+          ) : null}
 
           {/* Stock Status Badge */}
           <span

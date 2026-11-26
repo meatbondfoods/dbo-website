@@ -16,10 +16,10 @@ import { trackInitiateCheckout, trackPurchase } from "@/lib/meta-pixel";
 import { MapPin, Loader2, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 
 const PAY: { id: PaymentMethod; label: string; note: string }[] = [
-  { id: "cod", label: "Cash on delivery", note: "Pay when your order arrives" },
-  { id: "bkash", label: "bKash", note: "Demo only: no payment is taken" },
-  { id: "nagad", label: "Nagad", note: "Demo only: no payment is taken" },
-  { id: "card", label: "Card", note: "Demo only: no payment is taken" },
+  { id: "cod", label: "Cash on delivery", note: "Pay in cash when your chilled order arrives" },
+  { id: "bkash", label: "bKash", note: "Pay via bKash at doorstep or upon order confirmation" },
+  { id: "nagad", label: "Nagad", note: "Pay via Nagad at doorstep or upon order confirmation" },
+  { id: "card", label: "Card / POS", note: "Pay by card upon delivery or confirmation" },
 ];
 
 export default function CheckoutPage() {

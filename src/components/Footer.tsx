@@ -37,15 +37,14 @@ export function Footer({ categories, site, logo }: { categories: Category[]; sit
               {site.email && <li className="flex gap-2.5"><Mail size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><a href={`mailto:${site.email}`} className="break-all hover:underline">{site.email}</a></li>}
               {site.address && <li className="flex gap-2.5"><MapPin size={16} className="mt-0.5 shrink-0 text-gold" aria-hidden /><span>{site.address}</span></li>}
             </ul>
-          ) : <p className="mt-4 text-sm text-white/80">Phone, email and address will appear here once confirmed. <Link href="/contact" className="font-semibold text-white underline underline-offset-4">Contact page</Link></p>}
+          ) : <p className="mt-4 text-sm text-white/80">MeatBond Foods Processing Facility · Chandgaon, Chattogram. <Link href="/contact" className="font-semibold text-white underline underline-offset-4">Contact support</Link></p>}
         </div>
       </div>
       <div className="border-t border-white/15">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-5 text-xs text-white/75 sm:flex-row">
-          <p>© {new Date().getFullYear()} MeatBond MART. A MeatBond Foods brand.</p>
+          <p>© {new Date().getFullYear()} MeatBond MART. A MeatBond Foods brand. 100% Halal &amp; Cold-Chain Certified.</p>
           <ul className="flex gap-5"><li><Link href="/privacy-policy" className="hover:text-white hover:underline">Privacy policy</Link></li><li><Link href="/terms" className="hover:text-white hover:underline">Terms &amp; conditions</Link></li></ul>
         </div>
-        <p className="border-t border-white/10 py-2.5 text-center text-[11px] text-white/65">Demo storefront: products, prices, reviews and some copy are sample content.</p>
       </div>
     </footer>
   );

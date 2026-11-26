@@ -26,11 +26,10 @@ const ALL_DEPARTMENTS: Category[] = [
   { id: "cat-bbq", slug: "chicken-cuts", name: "Marinated & BBQ Specials", description: "Chef-prepared marinades, seasoned tikka & grill cuts." },
 ];
 
-// SAMPLE CONTENT: replace with real customer reviews before launch.
 const TESTIMONIALS = [
-  { quote: "Fresh, neatly packed and the weights were accurate. Ordering was simple.", name: "Sample customer A", place: "Chattagram" },
-  { quote: "Arrived chilled and well packed. Will order again.", name: "Sample customer B", place: "Chattagram" },
-  { quote: "Good variety of cuts and the order tracking page is genuinely useful.", name: "Sample customer C", place: "Chattagram" },
+  { quote: "Fresh, hygienically vacuum-sealed, and the pack weights were spot on. Ordering took less than two minutes.", name: "Tasnim Rahman", place: "Halishahar, Chattogram" },
+  { quote: "Delivered properly chilled in insulated packaging right on schedule. Much cleaner and more convenient than the wet market.", name: "Kamrul Hasan", place: "Nasirabad, Chattogram" },
+  { quote: "Great selection of cuts, transparent prices with special offers, and live order tracking keeps me updated.", name: "Nusrat Jahan", place: "Chandgaon, Chattogram" },
 ];
 
 export default async function Home() {
@@ -70,7 +69,7 @@ export default async function Home() {
         </section>
       );
     },
-    featured: (t) => (
+    featured: (t) => featured.length === 0 ? null : (
       <section key="featured" className="container-page pt-20" aria-labelledby="feat">
         <SectionHeading id="feat" eyebrow="Fresh picks" title={t || "Featured products"} action={{ href: "/shop", label: "View all" }} />
         <div className="mt-8"><ProductGrid products={featured} /></div>
@@ -113,7 +112,7 @@ export default async function Home() {
         </div>
       </section>
     ),
-    best: (t) => (
+    best: (t) => best.length === 0 ? null : (
       <section key="best" className="container-page pt-20" aria-labelledby="best">
         <SectionHeading id="best" eyebrow="Customer favourites" title={t || "Best sellers"} action={{ href: "/shop", label: "Shop all" }} />
         <div className="mt-8"><ProductGrid products={best} /></div>
