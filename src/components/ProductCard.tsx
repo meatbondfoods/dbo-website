@@ -93,8 +93,14 @@ export function ProductCard({ product, priority = false }: { product: Product; p
 
           {/* Price & Quality Trust Tag */}
           <div className="mt-3 flex items-baseline justify-between gap-2">
-            <PriceDisplay amount={option.price} size="lg" />
-            <span className="text-[11px] font-medium text-ink-soft">Chilled cut</span>
+            <PriceDisplay amount={option.price} compareAt={option.compareAtPrice} size="lg" />
+            {option.compareAtPrice && option.compareAtPrice > option.price ? (
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+                Save ৳{(option.compareAtPrice - option.price).toLocaleString("en-BD")}
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium text-ink-soft">Chilled cut</span>
+            )}
           </div>
         </div>
       </div>

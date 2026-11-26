@@ -12,7 +12,12 @@ export function applyDisplay(products: Product[], display: ContentMap["productDi
   const flagged = (flag: "featured" | "bestSeller") => visible.filter((p) => byId.get(p.id)?.[flag]);
   const anyFeatured = display.items.some((i) => i.featured);
   const anyBest = display.items.some((i) => i.bestSeller);
-  const featured = anyFeatured ? flagged("featured") : visible.filter((p) => p.availability !== "out_of_stock").slice(0, 4);
+  const erpFeatured = visible.filter((p) => p.tags.includes("featured"));
+  const featured = anyFeatured
+    ? flagged("featured")
+    : erpFeatured.length > 0
+      ? erpFeatured.slice(0, 8)
+      : visible.filter((p) => p.availability !== "out_of_stock").slice(0, 4);
   const best = anyBest ? flagged("bestSeller") : visible.filter((p) => p.tags.includes("bestseller")).slice(0, 4);
   return { visible, featured: featured.slice(0, 8), best: best.slice(0, 8) };
 }

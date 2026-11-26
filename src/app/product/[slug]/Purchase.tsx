@@ -29,7 +29,16 @@ export function Purchase({ product, categoryName }: { product: Product; category
 
   return (
     <div className="mt-6">
-      <PriceDisplay amount={option.price * qty} size="lg" />
+      <PriceDisplay
+        amount={option.price * qty}
+        compareAt={option.compareAtPrice && option.compareAtPrice > option.price ? option.compareAtPrice * qty : undefined}
+        size="lg"
+      />
+      {option.compareAtPrice && option.compareAtPrice > option.price && (
+        <p className="mt-1 text-xs font-semibold text-rose-700">
+          Offer applied: Save ৳{((option.compareAtPrice - option.price) * qty).toLocaleString("en-BD")}
+        </p>
+      )}
       {qty > 1 && <p className="mt-1 text-sm text-ink-soft">{qty} × ৳{option.price.toLocaleString("en-BD")}</p>}
       <fieldset className="mt-6">
         <legend className="label">Weight</legend>
